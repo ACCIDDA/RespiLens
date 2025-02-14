@@ -7,6 +7,8 @@ import logging
 from datetime import datetime
 import time
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -21,57 +23,65 @@ class NHSNDataDownloader:
         self.locations_path = Path(locations_path) if locations_path else None
         self.output_path.mkdir(parents=True, exist_ok=True)
         self.locations_data = None
-        
+
     def download_data(self, batch_size: int = 1000) -> pd.DataFrame:
         """Download all NHSN data using pagination from both endpoints"""
         logger.info("Starting NHSN data download...")
-        
+
         # Download from both endpoints
         official_data = self._download_from_endpoint(self.official_url, batch_size, "official")
         preliminary_data = self._download_from_endpoint(self.preliminary_url, batch_size, "preliminary")
-        
+
         # Convert both to dataframes
         official_df = pd.DataFrame(official_data)
         preliminary_df = pd.DataFrame(preliminary_data)
-        
-        # Merge the dataframes, giving priority to official data
-        df = pd.concat([preliminary_df, official_df]).drop_duplicates(
-            subset=['jurisdiction', 'weekendingdate'], 
-            keep='last'
-        )
-        
+
+        # Debug logging
+        logger.info(f"Official data shape: {official_df.shape}")
+        logger.info(f"Official data columns: {official_df.columns.tolist()}")
+        logger.info(f"Preliminary data shape: {preliminary_df.shape}")
+        logger.info(f"Preliminary data columns: {preliminary_df.columns.tolist()}")
+
+        # Combine the dataframes
+        df = pd.concat([preliminary_df, official_df], ignore_index=True)
+        logger.info(f"Combined data shape: {df.shape}")
+        logger.info(f"Combined data columns: {df.columns.tolist()}")
+        logger.info(f"Data types: {df['_type'].unique().tolist()}")
+
         return df
-        
-        return df
-        
+
     def _download_from_endpoint(self, url: str, batch_size: int, data_type: str) -> list:
         """Download data from a specific endpoint"""
         all_data = []
         offset = 0
-        
+
         while True:
             logger.info(f"Downloading {data_type} records {offset} to {offset + batch_size}")
             params = {
                 "$limit": batch_size,
                 "$offset": offset
             }
-            
+
             try:
                 response = requests.get(url, params=params)
                 response.raise_for_status()
                 batch_data = response.json()
-                
+
                 if not batch_data:  # No more data
                     break
-                    
+
+                # Add _type field to each record
+                for record in batch_data:
+                    record['_type'] = data_type
+
                 all_data.extend(batch_data)
                 offset += batch_size
                 time.sleep(0.1)  # Rate limiting
-                
+
             except Exception as e:
                 logger.error(f"Error downloading {data_type} data: {str(e)}")
                 break
-                
+
         return all_data
 
     def load_locations(self) -> pd.DataFrame:
@@ -81,74 +91,173 @@ class NHSNDataDownloader:
             self.locations_data = pd.read_csv(self.locations_path)
         return self.locations_data
 
-    def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Process the downloaded data into the required format"""
+    def process_data(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Process the downloaded data into official and preliminary dataframes"""
         logger.info("Processing NHSN data...")
-        
-        # Load locations and create mapping
-        locations = self.load_locations()
-        location_map = dict(zip(locations['location_name'], locations['location']))
-        
-        # Map jurisdiction names to location codes
-        df['jurisdiction'] = df['jurisdiction'].map(lambda x: location_map.get(x, x))
-        
-        # Rename key columns to match ground truth format
-        df = df.rename(columns={
-            'jurisdiction': 'location',
-            'weekendingdate': 'date'
-        })
-        
-        # Convert date to datetime
-        df['date'] = pd.to_datetime(df['date'])
-        
-        # Convert all numeric columns
-        numeric_columns = df.select_dtypes(include=['object']).columns
-        for col in numeric_columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-        
-        # Sort data
-        df = df.sort_values(['date', 'location'])
-        
-        return df
-        
-        return df
+        logger.info(f"Input DataFrame shape: {df.shape}")
 
-    def save_data(self, df: pd.DataFrame):
-        """Save the processed data"""
-        logger.info("Saving processed data...")
-        
-        # Create directory if it doesn't exist
+        # Load locations for validation and special cases
+        locations = self.load_locations()
+        logger.info(f"Loaded locations data shape: {locations.shape}")
+        valid_locations = set(locations['abbreviation'].str.upper())
+        logger.info(f"Valid locations: {valid_locations}")
+
+        # Create location column with special case handling
+        mapping_dict = {
+            'USA': 'US',  # Convert USA to US
+            'Region 1': None,  # Filter out regions
+            'Region 2': None,
+            'Region 3': None,
+            'Region 4': None,
+            'Region 5': None,
+            'Region 6': None,
+            'Region 7': None,
+            'Region 8': None,
+            'Region 9': None,
+            'Region 10': None,
+            'GU': None,  # Filter out territories if needed
+            'PR': None,
+            'VI': None,
+            'AS': None,
+            'MP': None
+        }
+
+        # Split into official and preliminary dataframes
+        official_df = df[df['_type'] == 'official'].copy()
+        preliminary_df = df[df['_type'] == 'preliminary'].copy()
+
+        # Process each dataframe
+        for df in [official_df, preliminary_df]:
+            # Map locations
+            df['location'] = df['jurisdiction'].apply(lambda x: mapping_dict.get(x, x))
+
+            # Drop rows where location is None (regions and territories)
+            df.dropna(subset=['location'], inplace=True)
+
+            # Rename date column and convert to datetime
+            df.rename(columns={'weekendingdate': 'date'}, inplace=True)
+            df['date'] = pd.to_datetime(df['date'])
+
+            # Convert numeric columns (exclude non-numeric columns)
+            exclude_cols = ['location', 'jurisdiction', 'date', '_type']
+            numeric_columns = [col for col in df.columns if col not in exclude_cols]
+
+            df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce')
+
+            # Sort data
+            df.sort_values(['date', 'location'], inplace=True)
+
+        return official_df, preliminary_df
+
+    def save_data(self, official_df: pd.DataFrame, preliminary_df: pd.DataFrame):
+        """Save the processed data in a format compatible with RSV/Flu views"""
+        logger.info("Starting save_data...")
+
+        # Create directories
         target_dir = self.output_path / "nhsn"
         target_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Save full CSV with all columns
-        df.to_csv(target_dir / "target-hospital-admissions.csv", index=False)
-        
-        # Create ground_truth.json with all numeric columns
-        json_data = {}
-        for location in df['location'].unique():
-            loc_data = df[df['location'] == location].sort_values('date')
-            
-            # Only include locations that have data
-            if not loc_data.empty:
-                # Get all numeric columns
-                numeric_cols = loc_data.select_dtypes(include=['number']).columns
-                
-                location_data = {
-                    'dates': loc_data['date'].dt.strftime('%Y-%m-%d').tolist(),
-                    'columns': list(numeric_cols),
-                    'data': {}
-                }
-                
-                # Add each numeric column's data
-                for col in numeric_cols:
-                    location_data['data'][col] = [float(v) if pd.notna(v) else None for v in loc_data[col].tolist()]
-                
-                json_data[location] = location_data
-        
-        # Save JSON
-        with open(target_dir / "ground_truth.json", 'w') as f:
-            json.dump(json_data, f, indent=2)
+        app_public_dir = Path("app/public/processed_data/nhsn")
+        app_public_dir.mkdir(parents=True, exist_ok=True)
+
+        # Load locations for metadata
+        locations = self.load_locations()
+        location_map = dict(zip(locations['abbreviation'].str.upper(), locations.to_dict('records')))
+
+        # Get all valid locations from both dataframes
+        valid_locations = set(official_df['location'].unique()) | set(preliminary_df['location'].unique())
+
+        # Create location-specific JSON files
+        for location in tqdm(valid_locations, desc="Saving location data"):
+            logger.info(f"Processing location: {location}")
+
+            try:
+                # Get location data from both dataframes
+                official_loc = official_df[official_df['location'] == location].sort_values('date')
+                preliminary_loc = preliminary_df[preliminary_df['location'] == location].sort_values('date')
+
+                if official_loc.empty and preliminary_loc.empty:
+                    logger.warning(f"No data for location {location}")
+                    continue
+
+                # Get location metadata
+                loc_info = location_map.get(location, {})
+
+                # Get all columns except metadata columns
+                exclude_cols = ['location', 'jurisdiction', 'date', '_type']
+
+                # Process official data
+                official_columns = {}
+                for col in official_loc.columns:
+                    if col not in exclude_cols and official_loc[col].notna().any():
+                        values = []
+                        for v in official_loc[col].tolist():
+                            if pd.isna(v) or v == 'NaN':
+                                values.append(None)
+                            else:
+                                try:
+                                    values.append(float(v))
+                                except (ValueError, TypeError):
+                                    values.append(None)
+                        if any(v is not None for v in values):
+                            official_columns[col] = values
+
+                # Process preliminary data
+                preliminary_columns = {}
+                for col in preliminary_loc.columns:
+                    if col not in exclude_cols and preliminary_loc[col].notna().any():
+                        values = []
+                        for v in preliminary_loc[col].tolist():
+                            if pd.isna(v) or v == 'NaN':
+                                values.append(None)
+                            else:
+                                try:
+                                    values.append(float(v))
+                                except (ValueError, TypeError):
+                                    values.append(None)
+                        if any(v is not None for v in values):
+                            preliminary_columns[col] = values
+
+                # Only create JSON if we have any data
+                if official_columns or preliminary_columns:
+                    # Use official dates if available, otherwise preliminary
+                    dates = (official_loc if not official_loc.empty else preliminary_loc)['date'].dt.strftime('%Y-%m-%d').tolist()
+
+                    location_data = {
+                        'metadata': {
+                            'location': loc_info.get('location', location),
+                            'abbreviation': location,
+                            'location_name': loc_info.get('location_name', location),
+                            'population': float(loc_info.get('population', 0))
+                        },
+                        'ground_truth': {
+                            'dates': dates,
+                            'values': [
+                                float(v) if pd.notna(v) and v != 'NaN' else None
+                                for v in (official_loc if not official_loc.empty else preliminary_loc)['totalconfrsvnewadm'].tolist()
+                            ]
+                        },
+                        'data': {
+                            'official': official_columns,
+                            'preliminary': preliminary_columns
+                        }
+                    }
+
+                    # Save to both locations
+                    output_file = target_dir / f"{location}_nhsn.json"
+                    app_output_file = app_public_dir / f"{location}_nhsn.json"
+
+                    logger.info(f"Saving data to {output_file} and {app_output_file}")
+
+                    with open(output_file, 'w') as f:
+                        json.dump(location_data, f, indent=2)
+                    with open(app_output_file, 'w') as f:
+                        json.dump(location_data, f, indent=2)
+                else:
+                    logger.warning(f"No non-empty columns found for location {location}")
+
+            except Exception as e:
+                logger.error(f"Error processing location {location}: {str(e)}")
+                continue
 
 def main():
     """Main execution function"""
@@ -158,21 +267,21 @@ def main():
     parser.add_argument('--locations-path', type=str,
                       help='Path to locations.csv file')
     args = parser.parse_args()
-    
+
     try:
         downloader = NHSNDataDownloader(args.output_path, args.locations_path)
-        
+
         # Download data
-        df = downloader.download_data()        
-        
-        # Process data
-        processed_df = downloader.process_data(df)
-        
-        # Save data
-        downloader.save_data(processed_df)
-        
+        df = downloader.download_data()
+
+        # Process data - now returns two dataframes
+        official_df, preliminary_df = downloader.process_data(df)
+
+        # Save data with both dataframes
+        downloader.save_data(official_df, preliminary_df)
+
         logger.info("NHSN data download and processing complete!")
-        
+
     except Exception as e:
         logger.error(f"Failed to download and process NHSN data: {str(e)}")
         raise

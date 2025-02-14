@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react';
+import ViewSelector from './ViewSelector';
 import InfoOverlay from './InfoOverlay';
+import { getDataPath } from '../utils/paths';
 
-const StateSelector = ({ onStateSelect }) => {
+const StateSelector = ({ onStateSelect, currentLocation = null, sidebarMode = false }) => {
   const [states, setStates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredStates = states.filter(state =>
+    state.location_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    state.abbreviation.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   useEffect(() => {
     const fetchStates = async () => {
       try {
-        // Fetch manifest
-        const manifestResponse = await fetch('./processed_data/flu/metadata.json');
+        // Fetch manifest using getDataPath
+        const manifestResponse = await fetch(getDataPath('flusight/metadata.json'));
         if (!manifestResponse.ok) {
           throw new Error(`Failed to fetch metadata: ${manifestResponse.statusText}`);
         }
-        
+
         const metadata = await manifestResponse.json();
         console.log('Loaded metadata:', metadata);
 
@@ -23,9 +31,13 @@ const StateSelector = ({ onStateSelect }) => {
         }
 
         // Use the locations data directly from metadata
-        const sortedLocations = metadata.locations.sort((a, b) => 
-          (a.location_name || '').localeCompare(b.location_name || ''));
-        
+        const sortedLocations = metadata.locations
+          .sort((a, b) => {
+            if (a.abbreviation === 'US') return -1;
+            if (b.abbreviation === 'US') return 1;
+            return (a.location_name || '').localeCompare(b.location_name || '');
+          });
+
         setStates(sortedLocations);
         setLoading(false);
       } catch (err) {
@@ -61,6 +73,42 @@ const StateSelector = ({ onStateSelect }) => {
             <li>Data files are present in app/public/processed_data/</li>
             <li>manifest.json contains valid location data</li>
           </ul>
+        </div>
+      </div>
+    );
+  }
+
+  if (sidebarMode) {
+    return (
+      <div className="w-64 bg-white border-r shadow-lg flex flex-col">
+        <div className="p-4 border-b">
+          <h3 className="font-bold mb-4 text-gray-700">Select View</h3>
+          <ViewSelector />
+        </div>
+        <div className="p-4">
+          <h3 className="font-bold mb-4 text-gray-700">Select Location</h3>
+          <input
+            type="text"
+            placeholder="Search states..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full p-2 border rounded mb-4"
+          />
+          <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+            {filteredStates.map((state) => (
+              <div
+                key={state.location}
+                onClick={() => onStateSelect(state.abbreviation)}
+                className={`p-2 cursor-pointer rounded transition-colors ${
+                  currentLocation === state.abbreviation
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'hover:bg-gray-100'
+                }`}
+              >
+                <div className="font-medium">{state.location_name}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

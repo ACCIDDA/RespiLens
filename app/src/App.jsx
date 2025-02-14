@@ -21,20 +21,19 @@ const AppContent = () => {
   };
 
   if (!selectedLocation) {
-    return <StateSelector onStateSelect={handleStateSelect} />;
+    return (
+      <div className="flex h-screen">
+        <StateSelector onStateSelect={handleStateSelect} sidebarMode={true} />
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
+          <div className="text-gray-500 text-lg">
+            Select a state to view forecasts
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <ForecastViz 
-      location={selectedLocation} 
-      onBack={() => {
-        setSelectedLocation(null);
-        const newParams = new URLSearchParams(searchParams);
-        newParams.delete('location');
-        setSearchParams(newParams);
-      }} 
-    />
-  );
+  return <ForecastViz location={selectedLocation} handleStateSelect={handleStateSelect} />;
 };
 
 const App = () => (
