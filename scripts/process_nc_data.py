@@ -84,7 +84,6 @@ class NCPreprocessor:
             df['date_str'] = df['date'].dt.strftime('%Y-%m-%d')
             locations = pd.read_csv('./FluSight-forecast-hub/auxiliary-data/locations.csv')
 
-            print(self.target_data_path)
             # Load locations
             logger.info(f"Loading locations data from {self.target_data_path}")
 
@@ -221,7 +220,6 @@ class NCPreprocessor:
 
         # Add progress tracking
         total_files = sum(len(files) for files in self.model_files.values())
-        print(files)
         logger.info(f"Processing {total_files} files across {len(self.model_files)} models")
 
         # Process in parallel

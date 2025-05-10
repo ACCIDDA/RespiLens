@@ -1,0 +1,1 @@
+{"metadata": {"location": "US", "abbreviation": "US", "location_name": "US", "population": 334914895.0}, "ground_truth": {"dates": [], "values": []}, "forecasts": {}, "available_models": [], "all_models": ["Flusight-ensemble", "JHU_IDD-hierarchSIM", "JHU_IDD-hierarchSIM_wbackfill", "UNC_IDD-InfluPaint", "simple-ensemble-mean"]}

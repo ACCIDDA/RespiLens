@@ -1,0 +1,25 @@
+{
+  "last_updated": "2025-04-29 13:43:39",
+  "models": [
+    "Flusight-ensemble",
+    "JHU_IDD-hierarchSIM",
+    "JHU_IDD-hierarchSIM_wbackfill",
+    "UNC_IDD-InfluPaint",
+    "simple-ensemble-mean"
+  ],
+  "locations": [
+    {
+      "location": "37",
+      "abbreviation": "NC",
+      "location_name": "North Carolina",
+      "population": 10835491.0
+    },
+    {
+      "location": "US",
+      "abbreviation": "US",
+      "location_name": "US",
+      "population": 334914895.0
+    }
+  ],
+  "demo_mode": false
+}
