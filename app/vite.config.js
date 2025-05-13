@@ -1,22 +1,15 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
 export default defineConfig({
+  base: '/',                     // root on respilens.com
   plugins: [react()],
-  base: '/',
-  build: {
-    outDir: 'dist'  // Ensure consistent output directory
-  },
   server: {
-    watch: {
-      usePolling: true
-    },
-    proxy: {
-      '/processed_data': {
-        target: 'http://localhost:5173/',
-        rewrite: (path) => path
-      }
-    }
+    watch: { usePolling: true }, // still useful on macOS/WSL
+    publicDir: 'public'          // static files live here
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets'
   }
-})
+});
