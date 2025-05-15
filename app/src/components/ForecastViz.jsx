@@ -51,6 +51,7 @@ const ForecastViz = ({ location, handleStateSelect }) => {
   useEffect(() => {
     const urlView = searchParams.get('view');
     if (urlView && ['fludetailed', 'flutimeseries', 'rsvdetailed', 'nhsnall'].includes(urlView)) {
+    // if (urlView && ['fludetailed'].includes(urlView)) {
       setViewType(urlView);
     }
   }, []);
