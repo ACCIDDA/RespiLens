@@ -1,10 +1,15 @@
 from typing import List, Union, Dict, Any, Optional
-from pydantic import BaseModel, HttpUrl, constr, confloat, conint, validator
+from pydantic import BaseModel, HttpUrl, confloat, conint, Field, validator
 from datetime import datetime
+# Try importing Annotated from typing_extensions first, then typing for broader compatibility
+try:
+    from typing_extensions import Annotated
+except ImportError:
+    from typing import Annotated
 
 # Basic types
-LocationAbbrev = constr(regex=r"^[A-Z0-9]{2,3}$") # US, AL, 01 etc.
-DateStr = constr(regex=r"^\d{4}-\d{2}-\d{2}$") # YYYY-MM-DD
+LocationAbbrev = Annotated[str, Field(pattern=r"^[A-Z0-9]{2,3}$")] # US, AL, 01 etc.
+DateStr = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")] # YYYY-MM-DD
 
 class LocationBase(BaseModel):
     location: LocationAbbrev
@@ -16,7 +21,7 @@ class LocationBase(BaseModel):
 class QuantilePrediction(BaseModel):
     target_end_date: DateStr
     quantiles: List[confloat(ge=0, le=1)]
-    values: List[Union[float, None]] # Allow for nulls if data can be missing
+    values: List[Optional[float]] # Allow for nulls if data can be missing
 
     @validator('values')
     def check_quantiles_values_length(cls, v, values):
@@ -25,6 +30,14 @@ class QuantilePrediction(BaseModel):
         return v
 
 class ModelPredictions(BaseModel):
-    type: constr(regex=r"^(quantile|point|pmf|sample)$") # Extend as needed
+    type: Annotated[str, Field(pattern=r"^(quantile|point|pmf|sample)$")] # Extend as needed
     # predictions is a dictionary where keys are horizon strings e.g. "0", "1", "-1"
-    predictions: Dict[constr(regex=r"^-?\d+$"), QuantilePrediction] # Defaulting to QuantilePrediction as it's most detailed in spec
+    # Using str for keys; regex validation for dict keys can be done via a separate validator if essential
+    predictions: Dict[str, QuantilePrediction]
+
+    @validator('predictions')
+    def check_prediction_keys_are_valid_horizons(cls, v):
+        for key in v.keys():
+            if not isinstance(key, str) or not key.strip('-').isdigit(): # Simple check for "integer-like strings"
+                 raise ValueError(f"Prediction key '{key}' must be an integer-like string (e.g., '-1', '0', '10').")
+        return v
