@@ -30,6 +30,25 @@ class QuantilePrediction(BaseModel):
             raise ValueError('quantiles and values lists must have the same length')
         return v
 
+# Model for PMF (Probability Mass Function) predictions
+class PMFPrediction(BaseModel):
+    date: DateStr
+    categories: List[str]
+    probabilities: List[confloat(ge=0, le=1)]
+
+    @validator('probabilities')
+    def check_probabilities_sum(cls, v):
+        if not math.isclose(sum(v), 1.0, abs_tol=0.001): # Allow for small floating point inaccuracies
+            raise ValueError('Probabilities must sum to 1.0')
+        return v
+
+    @validator('probabilities')
+    def check_categories_probabilities_length(cls, v, values):
+        # This validator style is for Pydantic V1 where 'values' contains already validated fields
+        if 'categories' in values and len(v) != len(values['categories']):
+            raise ValueError('categories and probabilities lists must have the same length')
+        return v
+
 class ModelPredictions(BaseModel):
     type: Annotated[str, Field(pattern=r"^(quantile|point|pmf|sample)$")] # Extend as needed
     # predictions is a dictionary where keys are horizon strings e.g. "0", "1", "-1"
@@ -73,22 +92,3 @@ class ModelPredictions(BaseModel):
                 # raise ValueError(f"Unknown model type '{model_type}' encountered in validator.")
 
         return values
-
-# Model for PMF (Probability Mass Function) predictions
-class PMFPrediction(BaseModel):
-    date: DateStr
-    categories: List[str]
-    probabilities: List[confloat(ge=0, le=1)]
-
-    @validator('probabilities')
-    def check_probabilities_sum(cls, v):
-        if not math.isclose(sum(v), 1.0, abs_tol=0.001): # Allow for small floating point inaccuracies
-            raise ValueError('Probabilities must sum to 1.0')
-        return v
-
-    @validator('probabilities')
-    def check_categories_probabilities_length(cls, v, values):
-        # This validator style is for Pydantic V1 where 'values' contains already validated fields
-        if 'categories' in values and len(v) != len(values['categories']):
-            raise ValueError('categories and probabilities lists must have the same length')
-        return v
