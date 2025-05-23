@@ -301,7 +301,7 @@ class RSVPreprocessor:
                 0.01, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45,
                 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975, 0.99
             ], # Standard 23 quantiles
-            'last_updated': pd.Timestamp.now(), # Pydantic will convert to ISO string
+            'last_updated': pd.Timestamp.now().to_pydatetime(), # Convert to standard Python datetime
             'models': sorted(list(self.all_models)),
             'age_groups': self.age_groups,
             'locations': [
@@ -324,7 +324,7 @@ class RSVPreprocessor:
         try:
             validated_dataset_metadata = RSVHubDatasetMetadata(**dataset_metadata_dict)
             with open(dataset_metadata_filename, 'w') as f:
-                json.dump(validated_dataset_metadata.dict(by_alias=True), f, indent=2)
+                json.dump(validated_dataset_metadata.model_dump(by_alias=True, mode='json'), f, indent=2)
             logger.info(f"Successfully validated and saved dataset metadata to {dataset_metadata_filename}")
         except ValidationError as e:
             logger.error(f"Validation Error for dataset metadata {dataset_metadata_filename}: {e}")
@@ -365,7 +365,7 @@ class RSVPreprocessor:
                 validated_loc_projection = RSVLocationProjectionsFile(**payload_for_validation)
                 with open(output_filename, 'w') as f:
                     # The original script did not use NpEncoder for RSV, Pydantic's .dict() should handle standard types.
-                    json.dump(validated_loc_projection.dict(by_alias=True), f, indent=2)
+                    json.dump(validated_loc_projection.model_dump(by_alias=True, mode='json'), f, indent=2)
                 # logger.info(f"Successfully validated and saved projection for {location_abbrev} to {output_filename}")
             except ValidationError as e:
                 logger.error(f"Validation Error for projection {output_filename}: {e}")

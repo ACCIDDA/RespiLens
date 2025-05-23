@@ -186,10 +186,10 @@ class NHSNDataDownloader:
             validated_dataset_meta = NHSNDatasetMetadata(**nhsn_metadata_dict)
             # Save dataset metadata to args.output_path
             with open(dataset_metadata_output_file, 'w') as f:
-                json.dump(validated_dataset_meta.dict(by_alias=True), f, indent=2)
+                json.dump(validated_dataset_meta.model_dump(by_alias=True, mode='json'), f, indent=2)
             # Save dataset metadata to app/public path
             with open(dataset_metadata_app_public_file, 'w') as f:
-                json.dump(validated_dataset_meta.dict(by_alias=True), f, indent=2)
+                json.dump(validated_dataset_meta.model_dump(by_alias=True, mode='json'), f, indent=2)
             logger.info(f"Successfully validated and saved NHSN dataset metadata to {dataset_metadata_output_file} and {dataset_metadata_app_public_file}")
         except ValidationError as e:
             logger.error(f"Validation Error for NHSN dataset metadata ({dataset_metadata_output_file.name}): {e}")
@@ -307,9 +307,9 @@ class NHSNDataDownloader:
                     try:
                         validated_timeseries_file = NHSNLocationTimeseriesFile(**final_location_data)
                         with open(output_file, 'w') as f:
-                            json.dump(validated_timeseries_file.dict(by_alias=True), f, indent=2)
+                            json.dump(validated_timeseries_file.model_dump(by_alias=True, mode='json'), f, indent=2)
                         with open(app_output_file, 'w') as f:
-                            json.dump(validated_timeseries_file.dict(by_alias=True), f, indent=2)
+                            json.dump(validated_timeseries_file.model_dump(by_alias=True, mode='json'), f, indent=2)
                         # logger.info(f"Successfully validated and saved timeseries for {location} to {output_file} and {app_output_file}")
                     except ValidationError as e:
                         logger.error(f"Validation Error for timeseries file {output_file.name}: {e}")

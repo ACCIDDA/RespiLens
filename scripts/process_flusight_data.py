@@ -261,7 +261,7 @@ class FluSightPreprocessor:
                 0.01, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45,
                 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975, 0.99
             ],
-            'last_updated': pd.Timestamp.now(), # Pydantic will convert to ISO string
+            'last_updated': pd.Timestamp.now().to_pydatetime(), # Convert to standard Python datetime
             'models': sorted(list(self.all_models)),
             'locations': [
                 {
@@ -285,7 +285,7 @@ class FluSightPreprocessor:
             with open(dataset_metadata_filename, 'w') as f:
                 # Pydantic's .dict() handles datetime to ISO string conversion.
                 # by_alias=True is good practice if your models use aliases.
-                json.dump(validated_dataset_metadata.dict(by_alias=True), f, indent=2)
+                json.dump(validated_dataset_metadata.model_dump(by_alias=True, mode='json'), f, indent=2)
             logger.info(f"Successfully validated and saved dataset metadata to {dataset_metadata_filename}")
         except ValidationError as e:
             logger.error(f"Validation Error for dataset metadata {dataset_metadata_filename}: {e}")
@@ -325,8 +325,8 @@ class FluSightPreprocessor:
             try:
                 validated_loc_projection = FluSightLocationProjectionsFile(**payload_for_validation)
                 with open(output_filename, 'w') as f:
-                    # Using NpEncoder because forecast_data can contain numpy types not handled by Pydantic's .dict()
-                    json.dump(validated_loc_projection.dict(by_alias=True), f, indent=2, cls=NpEncoder)
+                    # Relying on Pydantic V2's model_dump(mode='json') to handle type coercion for standard JSON.
+                    json.dump(validated_loc_projection.model_dump(by_alias=True, mode='json'), f, indent=2)
                 # logger.info(f"Successfully validated and saved projection for {location_abbrev} to {output_filename}")
             except ValidationError as e:
                 logger.error(f"Validation Error for projection {output_filename}: {e}")
