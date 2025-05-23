@@ -282,9 +282,17 @@ class RSVPreprocessor:
 
         # Save metadata about available models and age groups
         metadata = {
+            "shortName": "rsv_hub",
+            "fullName": "RSV Hospitalisation Forecasts",
+            "defaultView": "detailed",
+            "targets": ["inc hosp"], # Primary target for RSV forecasts
+            "quantile_levels": [
+                0.01, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45,
+                0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975, 0.99
+            ], # Standard 23 quantiles
             'last_updated': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
             'models': sorted(list(self.all_models)),  # Keep global list here
-            'age_groups': self.age_groups,
+            'age_groups': self.age_groups, # Retain existing age_groups
             'locations': [
                 {
                     'location': str(row.location),
@@ -294,16 +302,20 @@ class RSVPreprocessor:
                 }
                 for _, row in locations.iterrows()
                 if pd.notna(row.location_name) and pd.notna(row.abbreviation)
-            ],
+            ], # Keep locations for now
             'demo_mode': self.demo_mode
         }
 
-        # Create rsv subdirectory
-        payload_path = self.output_path / "rsv"
-        payload_path.mkdir(parents=True, exist_ok=True)
+        # Path for dataset metadata
+        dataset_metadata_path = self.output_path / "datasets" / "rsv_hub"
+        dataset_metadata_path.mkdir(parents=True, exist_ok=True)
 
-        with open(payload_path / 'metadata.json', 'w') as f:
+        with open(dataset_metadata_path / 'metadata.json', 'w') as f:
             json.dump(metadata, f, indent=2)
+
+        # Path for location-specific projection files
+        payload_path = self.output_path / "datasets" / "rsv_hub" / "projections"
+        payload_path.mkdir(parents=True, exist_ok=True)
 
         # Create and save location-specific payloads
         for _, location_info in tqdm(locations.iterrows(), desc="Creating location payloads"):
@@ -334,7 +346,7 @@ class RSVPreprocessor:
             location_abbrev = str(location_info['abbreviation']).strip()
             if not location_abbrev:
                 continue  # Skip if no valid abbreviation
-            with open(payload_path / f"{location_abbrev}_rsv.json", 'w') as f:
+            with open(payload_path / f"{location_abbrev}.json", 'w') as f:
                 json.dump(payload, f)
 
 def main():

@@ -239,6 +239,14 @@ class FluSightPreprocessor:
 
         # Save metadata about available models
         metadata = {
+            "shortName": "flusight",
+            "fullName": "FluSight Hospitalisation Forecasts",
+            "defaultView": "detailed",
+            "targets": ["wk inc flu hosp"], # Primary target, other seasonal/peak targets might be present in data
+            "quantile_levels": [
+                0.01, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45,
+                0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975, 0.99
+            ], # Standard 23 quantiles
             'last_updated': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
             'models': sorted(list(self.all_models)),  # Keep global list here
             'locations': [
@@ -254,12 +262,16 @@ class FluSightPreprocessor:
             'demo_mode': self.demo_mode
         }
 
-        # Create flusight subdirectory
-        payload_path = self.output_path / "flusight"
-        payload_path.mkdir(parents=True, exist_ok=True)
+        # Path for dataset metadata
+        dataset_metadata_path = self.output_path / "datasets" / "flusight"
+        dataset_metadata_path.mkdir(parents=True, exist_ok=True)
 
-        with open(payload_path / 'metadata.json', 'w') as f:
+        with open(dataset_metadata_path / 'metadata.json', 'w') as f:
             json.dump(metadata, f, indent=2)
+
+        # Path for location-specific projection files
+        payload_path = self.output_path / "datasets" / "flusight" / "projections"
+        payload_path.mkdir(parents=True, exist_ok=True)
 
         # Create and save location-specific payloads
         for _, location_info in tqdm(locations.iterrows(), desc="Creating location payloads"):
@@ -301,7 +313,7 @@ class FluSightPreprocessor:
             location_abbrev = str(location_info['abbreviation']).strip()
             if not location_abbrev:
                 continue  # Skip if no valid abbreviation
-            with open(payload_path / f"{location_abbrev}_flusight.json", 'w') as f:
+            with open(payload_path / f"{location_abbrev}.json", 'w') as f:
                 json.dump(payload, f, cls=NpEncoder)
 
 class NpEncoder(json.JSONEncoder):

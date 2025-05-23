@@ -153,10 +153,36 @@ class NHSNDataDownloader:
         """Save the processed data in a format compatible with RSV/Flu views"""
         logger.info("Starting save_data...")
 
-        # Create directories
-        target_dir = self.output_path / "nhsn"
+        # Define and create base directories for dataset metadata
+        dataset_metadata_base_output_path = self.output_path / "datasets" / "nhsn"
+        dataset_metadata_base_output_path.mkdir(parents=True, exist_ok=True)
+        dataset_metadata_base_app_public_path = Path("app/public/processed_data/datasets/nhsn")
+        dataset_metadata_base_app_public_path.mkdir(parents=True, exist_ok=True)
+
+        # Create dataset metadata content
+        nhsn_metadata = {
+            "shortName": "nhsn",
+            "fullName": "National Healthcare Safety Network Data",
+            "description": "Timeseries data for various health metrics reported by NHSN.",
+            "last_updated": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "columns_description_url": "https://www.cdc.gov/nhsn/covid19/report-patient-impact.html#anchor_1613680270822" # Example URL
+        }
+
+        # Define full paths for metadata files
+        dataset_metadata_output_file = dataset_metadata_base_output_path / "metadata.json"
+        dataset_metadata_app_public_file = dataset_metadata_base_app_public_path / "metadata.json"
+
+        # Save dataset metadata
+        with open(dataset_metadata_output_file, 'w') as f:
+            json.dump(nhsn_metadata, f, indent=2)
+        with open(dataset_metadata_app_public_file, 'w') as f:
+            json.dump(nhsn_metadata, f, indent=2)
+        logger.info(f"Saved NHSN dataset metadata to {dataset_metadata_output_file} and {dataset_metadata_app_public_file}")
+
+        # Define and create directories for timeseries data
+        target_dir = self.output_path / "datasets" / "nhsn" / "timeseries"
         target_dir.mkdir(parents=True, exist_ok=True)
-        app_public_dir = Path("app/public/processed_data/nhsn")
+        app_public_dir = Path("app/public/processed_data/datasets/nhsn/timeseries")
         app_public_dir.mkdir(parents=True, exist_ok=True)
 
         # Load locations for metadata
@@ -217,43 +243,57 @@ class NHSNDataDownloader:
                         if any(v is not None for v in values):
                             preliminary_columns[col] = values
 
-                # Only create JSON if we have any data
-                if official_columns or preliminary_columns:
-                    # Use official dates if available, otherwise preliminary
-                    dates = (official_loc if not official_loc.empty else preliminary_loc)['date'].dt.strftime('%Y-%m-%d').tolist()
+                final_location_data = {}
 
-                    location_data = {
-                        'metadata': {
-                            'location': loc_info.get('location', location),
-                            'abbreviation': location,
-                            'location_name': loc_info.get('location_name', location),
-                            'population': float(loc_info.get('population', 0))
+                # Process official data
+                if not official_loc.empty and official_columns:
+                    official_dates = official_loc['date'].dt.strftime('%Y-%m-%d').tolist()
+                    official_payload = {
+                        "metadata": {
+                            "dataset": "nhsn",
+                            "location": location,
+                            "location_name": loc_info.get('location_name', location),
+                            "population": float(loc_info.get('population', 0)) if loc_info.get('population') is not None else None,
+                            "series_type": "official"
                         },
-                        'ground_truth': {
-                            'dates': dates,
-                            'values': [
-                                float(v) if pd.notna(v) and v != 'NaN' else None
-                                for v in (official_loc if not official_loc.empty else preliminary_loc)['totalconfrsvnewadm'].tolist()
-                            ]
-                        },
-                        'data': {
-                            'official': official_columns,
-                            'preliminary': preliminary_columns
+                        "series": {
+                            "dates": official_dates,
+                            "columns": official_columns
                         }
                     }
+                    final_location_data["official"] = official_payload
 
-                    # Save to both locations
-                    output_file = target_dir / f"{location}_nhsn.json"
-                    app_output_file = app_public_dir / f"{location}_nhsn.json"
+                # Process preliminary data
+                if not preliminary_loc.empty and preliminary_columns:
+                    preliminary_dates = preliminary_loc['date'].dt.strftime('%Y-%m-%d').tolist()
+                    preliminary_payload = {
+                        "metadata": {
+                            "dataset": "nhsn",
+                            "location": location,
+                            "location_name": loc_info.get('location_name', location),
+                            "population": float(loc_info.get('population', 0)) if loc_info.get('population') is not None else None,
+                            "series_type": "preliminary"
+                        },
+                        "series": {
+                            "dates": preliminary_dates,
+                            "columns": preliminary_columns
+                        }
+                    }
+                    final_location_data["preliminary"] = preliminary_payload
+
+                # Save to both locations with new filename format
+                if final_location_data:
+                    output_file = target_dir / f"{location}.json"
+                    app_output_file = app_public_dir / f"{location}.json"
 
                     logger.info(f"Saving data to {output_file} and {app_output_file}")
 
                     with open(output_file, 'w') as f:
-                        json.dump(location_data, f, indent=2)
+                        json.dump(final_location_data, f, indent=2)
                     with open(app_output_file, 'w') as f:
-                        json.dump(location_data, f, indent=2)
+                        json.dump(final_location_data, f, indent=2)
                 else:
-                    logger.warning(f"No non-empty columns found for location {location}")
+                    logger.warning(f"No data (official or preliminary) to save for location {location}")
 
             except Exception as e:
                 logger.error(f"Error processing location {location}: {str(e)}")
