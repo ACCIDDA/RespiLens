@@ -259,15 +259,23 @@ class RSVPreprocessor:
         if output_type == 'quantile':
             # For quantiles, group by horizon first
             predictions = {}
+            # Get the origin_date from the group_df (it's the same for all rows in this group)
+            # origin_date is already a datetime object from the read_model_outputs processing
+            origin_date = group_df['origin_date'].iloc[0]
+
             for horizon, horizon_df in group_df.groupby('horizon'):
                 # Sort by quantile to ensure correct order
                 horizon_df = horizon_df.sort_values('output_type_id')
+                
+                # Calculate target_end_date: origin_date + horizon (assuming horizon is in weeks for RSV)
+                # The 'horizon' column in RSV hub data is typically integer weeks.
+                target_end_date = origin_date + pd.to_timedelta(int(horizon), unit='W')
 
                 predictions[str(int(horizon))] = {
+                    'date': target_end_date.strftime('%Y-%m-%d'), # Added date field
                     'quantiles': horizon_df['output_type_id'].astype(float).tolist(),
-                    'values': horizon_df['value'].tolist(),
-                    # Optional: include model name for additional context
-                    'model': group_df['model'].iloc[0]
+                    'values': horizon_df['value'].tolist()
+                    # 'model' field removed
                 }
             return {'type': 'quantile', 'predictions': predictions}
 
