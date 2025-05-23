@@ -19,7 +19,7 @@ class LocationBase(BaseModel):
 
 # Model for quantile predictions (most common in current scripts)
 class QuantilePrediction(BaseModel):
-    target_end_date: DateStr
+    date: DateStr # Changed from target_end_date
     quantiles: List[confloat(ge=0, le=1)]
     values: List[Optional[float]] # Allow for nulls if data can be missing
 
