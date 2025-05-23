@@ -6,7 +6,16 @@ from pathlib import Path
 import logging
 from datetime import datetime
 import time
-from typing import Optional
+from typing import Optional, Any
+from pydantic import ValidationError
+try:
+    from schemas.dataset_metadata import NHSNDatasetMetadata
+    from schemas.timeseries import NHSNLocationTimeseriesFile
+except ImportError:
+    import sys
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
+    from schemas.dataset_metadata import NHSNDatasetMetadata
+    from schemas.timeseries import NHSNLocationTimeseriesFile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
@@ -160,24 +169,31 @@ class NHSNDataDownloader:
         dataset_metadata_base_app_public_path.mkdir(parents=True, exist_ok=True)
 
         # Create dataset metadata content
-        nhsn_metadata = {
+        # For NHSNDatasetMetadata, last_updated should be datetime if model expects it, or string if model expects string.
+        # The model NHSNDatasetMetadata has `last_updated: Optional[datetime]`. Pydantic will parse the string.
+        nhsn_metadata_dict: Dict[str, Any] = {
             "shortName": "nhsn",
             "fullName": "National Healthcare Safety Network Data",
             "description": "Timeseries data for various health metrics reported by NHSN.",
-            "last_updated": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "columns_description_url": "https://www.cdc.gov/nhsn/covid19/report-patient-impact.html#anchor_1613680270822" # Example URL
+            "last_updated": datetime.now(), # Pass as datetime object
+            "columns_description_url": "https://www.cdc.gov/nhsn/covid19/report-patient-impact.html#anchor_1613680270822"
         }
 
-        # Define full paths for metadata files
         dataset_metadata_output_file = dataset_metadata_base_output_path / "metadata.json"
         dataset_metadata_app_public_file = dataset_metadata_base_app_public_path / "metadata.json"
 
-        # Save dataset metadata
-        with open(dataset_metadata_output_file, 'w') as f:
-            json.dump(nhsn_metadata, f, indent=2)
-        with open(dataset_metadata_app_public_file, 'w') as f:
-            json.dump(nhsn_metadata, f, indent=2)
-        logger.info(f"Saved NHSN dataset metadata to {dataset_metadata_output_file} and {dataset_metadata_app_public_file}")
+        try:
+            validated_dataset_meta = NHSNDatasetMetadata(**nhsn_metadata_dict)
+            # Save dataset metadata to args.output_path
+            with open(dataset_metadata_output_file, 'w') as f:
+                json.dump(validated_dataset_meta.dict(by_alias=True), f, indent=2)
+            # Save dataset metadata to app/public path
+            with open(dataset_metadata_app_public_file, 'w') as f:
+                json.dump(validated_dataset_meta.dict(by_alias=True), f, indent=2)
+            logger.info(f"Successfully validated and saved NHSN dataset metadata to {dataset_metadata_output_file} and {dataset_metadata_app_public_file}")
+        except ValidationError as e:
+            logger.error(f"Validation Error for NHSN dataset metadata ({dataset_metadata_output_file.name}): {e}")
+            raise
 
         # Define and create directories for timeseries data
         target_dir = self.output_path / "datasets" / "nhsn" / "timeseries"
@@ -251,9 +267,10 @@ class NHSNDataDownloader:
                     official_payload = {
                         "metadata": {
                             "dataset": "nhsn",
-                            "location": location,
-                            "location_name": loc_info.get('location_name', location),
-                            "population": float(loc_info.get('population', 0)) if loc_info.get('population') is not None else None,
+                            "location": location, # This is abbreviation from df, e.g. "CA", "US"
+                            "name": loc_info.get('location_name', location), # Full name
+                            "abbreviation": location, # Using the same as 'location' for NHSN as it's typically state abbr.
+                            "population": int(float(loc_info.get('population'))) if pd.notna(loc_info.get('population')) else None,
                             "series_type": "official"
                         },
                         "series": {
@@ -269,9 +286,10 @@ class NHSNDataDownloader:
                     preliminary_payload = {
                         "metadata": {
                             "dataset": "nhsn",
-                            "location": location,
-                            "location_name": loc_info.get('location_name', location),
-                            "population": float(loc_info.get('population', 0)) if loc_info.get('population') is not None else None,
+                            "location": location, # This is abbreviation from df
+                            "name": loc_info.get('location_name', location), # Full name
+                            "abbreviation": location, # Using the same as 'location'
+                            "population": int(float(loc_info.get('population'))) if pd.notna(loc_info.get('population')) else None,
                             "series_type": "preliminary"
                         },
                         "series": {
@@ -283,19 +301,24 @@ class NHSNDataDownloader:
 
                 # Save to both locations with new filename format
                 if final_location_data:
-                    output_file = target_dir / f"{location}.json"
+                    output_file = target_dir / f"{location}.json" # location here is abbreviation
                     app_output_file = app_public_dir / f"{location}.json"
 
-                    logger.info(f"Saving data to {output_file} and {app_output_file}")
-
-                    with open(output_file, 'w') as f:
-                        json.dump(final_location_data, f, indent=2)
-                    with open(app_output_file, 'w') as f:
-                        json.dump(final_location_data, f, indent=2)
+                    try:
+                        validated_timeseries_file = NHSNLocationTimeseriesFile(**final_location_data)
+                        with open(output_file, 'w') as f:
+                            json.dump(validated_timeseries_file.dict(by_alias=True), f, indent=2)
+                        with open(app_output_file, 'w') as f:
+                            json.dump(validated_timeseries_file.dict(by_alias=True), f, indent=2)
+                        # logger.info(f"Successfully validated and saved timeseries for {location} to {output_file} and {app_output_file}")
+                    except ValidationError as e:
+                        logger.error(f"Validation Error for timeseries file {output_file.name}: {e}")
+                        # logger.error(f"Problematic payload for {output_file.name}: {final_location_data}")
+                        raise
                 else:
                     logger.warning(f"No data (official or preliminary) to save for location {location}")
 
-            except Exception as e:
+            except Exception as e: # Catch other potential errors during file processing for a location
                 logger.error(f"Error processing location {location}: {str(e)}")
                 continue
 

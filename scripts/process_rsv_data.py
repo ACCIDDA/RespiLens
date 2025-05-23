@@ -4,7 +4,18 @@ import json
 import pyarrow  # Ensure this is installed with: pip install pyarrow
 from pathlib import Path
 import logging
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
+from pydantic import ValidationError
+try:
+    # Assuming schemas are accessible in the PYTHONPATH or via relative imports
+    from schemas.dataset_metadata import RSVHubDatasetMetadata
+    from schemas.projections import RSVLocationProjectionsFile
+except ImportError:
+    # Fallback for direct script execution if schemas is a sibling directory
+    import sys
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
+    from schemas.dataset_metadata import RSVHubDatasetMetadata
+    from schemas.projections import RSVLocationProjectionsFile
 from tqdm import tqdm
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -280,8 +291,8 @@ class RSVPreprocessor:
         # Create output directory if it doesn't exist
         self.output_path.mkdir(parents=True, exist_ok=True)
 
-        # Save metadata about available models and age groups
-        metadata = {
+        # Prepare dataset-level metadata
+        dataset_metadata_dict: Dict[str, Any] = {
             "shortName": "rsv_hub",
             "fullName": "RSV Hospitalisation Forecasts",
             "defaultView": "detailed",
@@ -290,64 +301,75 @@ class RSVPreprocessor:
                 0.01, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45,
                 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975, 0.99
             ], # Standard 23 quantiles
-            'last_updated': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'models': sorted(list(self.all_models)),  # Keep global list here
-            'age_groups': self.age_groups, # Retain existing age_groups
+            'last_updated': pd.Timestamp.now(), # Pydantic will convert to ISO string
+            'models': sorted(list(self.all_models)),
+            'age_groups': self.age_groups,
             'locations': [
                 {
                     'location': str(row.location),
                     'abbreviation': str(row.abbreviation),
-                    'location_name': str(row.location_name),
-                    'population': float(row.population)
+                    'name': str(row.location_name), # Ensure 'name' matches LocationBase
+                    'population': float(row.population) if pd.notna(row.population) else None
                 }
                 for _, row in locations.iterrows()
                 if pd.notna(row.location_name) and pd.notna(row.abbreviation)
-            ], # Keep locations for now
+            ],
             'demo_mode': self.demo_mode
         }
 
-        # Path for dataset metadata
-        dataset_metadata_path = self.output_path / "datasets" / "rsv_hub"
-        dataset_metadata_path.mkdir(parents=True, exist_ok=True)
+        dataset_metadata_output_dir = self.output_path / "datasets" / "rsv_hub"
+        dataset_metadata_output_dir.mkdir(parents=True, exist_ok=True)
+        dataset_metadata_filename = dataset_metadata_output_dir / 'metadata.json'
 
-        with open(dataset_metadata_path / 'metadata.json', 'w') as f:
-            json.dump(metadata, f, indent=2)
+        try:
+            validated_dataset_metadata = RSVHubDatasetMetadata(**dataset_metadata_dict)
+            with open(dataset_metadata_filename, 'w') as f:
+                json.dump(validated_dataset_metadata.dict(by_alias=True), f, indent=2)
+            logger.info(f"Successfully validated and saved dataset metadata to {dataset_metadata_filename}")
+        except ValidationError as e:
+            logger.error(f"Validation Error for dataset metadata {dataset_metadata_filename}: {e}")
+            raise
 
         # Path for location-specific projection files
-        payload_path = self.output_path / "datasets" / "rsv_hub" / "projections"
-        payload_path.mkdir(parents=True, exist_ok=True)
+        projections_output_path = self.output_path / "datasets" / "rsv_hub" / "projections"
+        projections_output_path.mkdir(parents=True, exist_ok=True)
 
         # Create and save location-specific payloads
         for _, location_info in tqdm(locations.iterrows(), desc="Creating location payloads"):
-            location = location_info['location']
-            # Before the payload creation, get location-specific models
-            metadata_dict = {
-                'location': str(location_info['location']),
-                'abbreviation': str(location_info['abbreviation']),
-                'location_name': str(location_info['location_name']),
-                'population': float(location_info['population'])
-            }
-            location_models = set()
-            if location in forecast_data:
-                for date_data in forecast_data[location].values():
-                    for age_data in date_data.values():
-                        for target_data in age_data.values():
-                            location_models.update(target_data.keys())
-
-            payload = {
-                'metadata': metadata_dict,
-                'ground_truth': ground_truth.get(location, {}),
-                'forecasts': forecast_data.get(location, {}),
-                'available_models': sorted(list(location_models)),  # Location-specific models
-                'all_models': sorted(list(self.all_models))  # Add global model list here too
-            }
-
-            # Save location payload with abbreviation in filename
+            current_location_fips = str(location_info['location'])
             location_abbrev = str(location_info['abbreviation']).strip()
+
             if not location_abbrev:
-                continue  # Skip if no valid abbreviation
-            with open(payload_path / f"{location_abbrev}.json", 'w') as f:
-                json.dump(payload, f)
+                logger.warning(f"Skipping location {current_location_fips} due to missing abbreviation.")
+                continue
+            
+            output_filename = projections_output_path / f"{location_abbrev}.json"
+
+            file_metadata_payload = {
+                "dataset": "rsv_hub",
+                "location": current_location_fips,
+                "abbreviation": location_abbrev,
+                "name": str(location_info['location_name']),
+                "population": float(location_info['population']) if pd.notna(location_info['population']) else None
+            }
+            
+            # Ensure forecasts key exists, even if empty, for schema validation
+            current_location_forecasts = forecast_data.get(current_location_fips, {})
+
+            payload_for_validation = {
+                "metadata": file_metadata_payload,
+                "forecasts": current_location_forecasts
+            }
+
+            try:
+                validated_loc_projection = RSVLocationProjectionsFile(**payload_for_validation)
+                with open(output_filename, 'w') as f:
+                    # The original script did not use NpEncoder for RSV, Pydantic's .dict() should handle standard types.
+                    json.dump(validated_loc_projection.dict(by_alias=True), f, indent=2)
+                # logger.info(f"Successfully validated and saved projection for {location_abbrev} to {output_filename}")
+            except ValidationError as e:
+                logger.error(f"Validation Error for projection {output_filename}: {e}")
+                raise
 
 def main():
     parser = argparse.ArgumentParser(description='Process RSV forecast data for visualization')

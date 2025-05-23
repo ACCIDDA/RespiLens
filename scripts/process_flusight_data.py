@@ -4,7 +4,20 @@ import json
 import numpy as np
 from pathlib import Path
 import logging
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
+from pydantic import ValidationError
+try:
+    # Assuming schemas are accessible in the PYTHONPATH or via relative imports
+    from schemas.dataset_metadata import FluSightDatasetMetadata
+    from schemas.projections import FluSightLocationProjectionsFile
+except ImportError:
+    # Fallback for direct script execution if schemas is a sibling directory
+    # This might be needed if script is run as "python scripts/process_flusight_data.py"
+    # and the parent directory of "scripts" is not in PYTHONPATH
+    import sys
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
+    from schemas.dataset_metadata import FluSightDatasetMetadata
+    from schemas.projections import FluSightLocationProjectionsFile
 from tqdm import tqdm
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -237,84 +250,89 @@ class FluSightPreprocessor:
         # Create output directory if it doesn't exist
         self.output_path.mkdir(parents=True, exist_ok=True)
 
-        # Save metadata about available models
-        metadata = {
+        # Prepare dataset-level metadata
+        dataset_metadata_dict: Dict[str, Any] = {
             "shortName": "flusight",
             "fullName": "FluSight Hospitalisation Forecasts",
             "defaultView": "detailed",
-            "targets": ["wk inc flu hosp"], # Primary target, other seasonal/peak targets might be present in data
+            # Using a common target; specific files might have other targets
+            "targets": ["wk inc flu hosp"],
             "quantile_levels": [
                 0.01, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45,
                 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975, 0.99
-            ], # Standard 23 quantiles
-            'last_updated': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'models': sorted(list(self.all_models)),  # Keep global list here
+            ],
+            'last_updated': pd.Timestamp.now(), # Pydantic will convert to ISO string
+            'models': sorted(list(self.all_models)),
             'locations': [
                 {
-                    'location': str(row.location),
-                    'abbreviation': str(row.abbreviation),
-                    'location_name': str(row.location_name),
-                    'population': float(row.population)
+                    'location': str(row.location), # FIPS code or 'US'
+                    'abbreviation': str(row.abbreviation), # State/Territory abbreviation
+                    'name': str(row.location_name), # Full name
+                    'population': float(row.population) if pd.notna(row.population) else None
                 }
                 for _, row in locations.iterrows()
                 if pd.notna(row.location_name) and pd.notna(row.abbreviation)
             ],
             'demo_mode': self.demo_mode
         }
+        
+        dataset_metadata_output_dir = self.output_path / "datasets" / "flusight"
+        dataset_metadata_output_dir.mkdir(parents=True, exist_ok=True)
+        dataset_metadata_filename = dataset_metadata_output_dir / 'metadata.json'
 
-        # Path for dataset metadata
-        dataset_metadata_path = self.output_path / "datasets" / "flusight"
-        dataset_metadata_path.mkdir(parents=True, exist_ok=True)
-
-        with open(dataset_metadata_path / 'metadata.json', 'w') as f:
-            json.dump(metadata, f, indent=2)
+        try:
+            validated_dataset_metadata = FluSightDatasetMetadata(**dataset_metadata_dict)
+            with open(dataset_metadata_filename, 'w') as f:
+                # Pydantic's .dict() handles datetime to ISO string conversion.
+                # by_alias=True is good practice if your models use aliases.
+                json.dump(validated_dataset_metadata.dict(by_alias=True), f, indent=2)
+            logger.info(f"Successfully validated and saved dataset metadata to {dataset_metadata_filename}")
+        except ValidationError as e:
+            logger.error(f"Validation Error for dataset metadata {dataset_metadata_filename}: {e}")
+            raise # Re-raise for CI to catch
 
         # Path for location-specific projection files
-        payload_path = self.output_path / "datasets" / "flusight" / "projections"
-        payload_path.mkdir(parents=True, exist_ok=True)
+        projections_output_path = self.output_path / "datasets" / "flusight" / "projections"
+        projections_output_path.mkdir(parents=True, exist_ok=True)
 
         # Create and save location-specific payloads
         for _, location_info in tqdm(locations.iterrows(), desc="Creating location payloads"):
-            location = location_info['location']
-            if location == '06':  # California's FIPS code
-                models = [model for date_data in forecast_data.get('06', {}).values()
-                          for target_data in date_data.values()
-                          for model in target_data.keys()]
-                logger.info(f"CA forecast data models: {models}")
-            # Convert pandas Series to dict first
-            metadata_dict = {
-                'location': str(location_info['location']),
-                'abbreviation': str(location_info['abbreviation']),
-                'location_name': str(location_info['location_name']),
-                'population': float(location_info['population'])
-            }
-
-            # Before the payload creation, get location-specific models
-            location_models = set()
-            if location in forecast_data:
-                for date_data in forecast_data[location].values():
-                    for target_data in date_data.values():
-                        location_models.update(target_data.keys())
-
-            payload = {
-                'metadata': metadata_dict,
-                'ground_truth': {
-                    'dates': ground_truth.get(location, {'dates': []})['dates'],
-                    'values': [None if pd.isna(x) else x for x in ground_truth.get(location, {'values': []})['values']],
-                    'rates': [None if pd.isna(x) else x for x in ground_truth.get(location, {'rates': []})['rates']]
-                },
-                'forecasts': forecast_data.get(location, {}),
-                'available_models': sorted(list(location_models)),  # Location-specific models
-                'all_models': sorted(list(self.all_models))  # Add global model list here too
-            }
-
-            # Save location payload with abbreviation in filename
-            # Normalize the location abbreviation and remove any whitespace
+            current_location_fips = str(location_info['location'])
             location_abbrev = str(location_info['abbreviation']).strip()
+
             if not location_abbrev:
-                continue  # Skip if no valid abbreviation
-            with open(payload_path / f"{location_abbrev}.json", 'w') as f:
-                json.dump(payload, f, cls=NpEncoder)
+                logger.warning(f"Skipping location {current_location_fips} due to missing abbreviation.")
+                continue
+            
+            output_filename = projections_output_path / f"{location_abbrev}.json"
+
+            file_metadata_payload = {
+                "dataset": "flusight",
+                "location": current_location_fips,
+                "abbreviation": location_abbrev,
+                "name": str(location_info['location_name']),
+                "population": float(location_info['population']) if pd.notna(location_info['population']) else None
+            }
+            
+            # Ensure forecasts key exists, even if empty, for schema validation
+            current_location_forecasts = forecast_data.get(current_location_fips, {})
+
+            payload_for_validation = {
+                "metadata": file_metadata_payload,
+                "forecasts": current_location_forecasts
+            }
+
+            try:
+                validated_loc_projection = FluSightLocationProjectionsFile(**payload_for_validation)
+                with open(output_filename, 'w') as f:
+                    # Using NpEncoder because forecast_data can contain numpy types not handled by Pydantic's .dict()
+                    json.dump(validated_loc_projection.dict(by_alias=True), f, indent=2, cls=NpEncoder)
+                # logger.info(f"Successfully validated and saved projection for {location_abbrev} to {output_filename}")
+            except ValidationError as e:
+                logger.error(f"Validation Error for projection {output_filename}: {e}")
+                # Log specific problematic parts if possible
+                # logger.error(f"Problematic payload for {output_filename}: {payload_for_validation}")
+                raise # Re-raise for CI to catch
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
