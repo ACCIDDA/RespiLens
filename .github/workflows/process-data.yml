@@ -39,20 +39,33 @@ jobs:
    - name: Install dependencies
      run: |
        python -m pip install --upgrade pip
-       pip install pandas numpy pyarrow tqdm logging typing
+       pip install pandas numpy pyarray tqdm logging typing pydantic
        
    - name: Process FluSight data
      run: |
        mkdir -p app/public/processed_data
        python scripts/process_flusight_data.py --hub-path ./FluSight-forecast-hub --output-path ./app/public/processed_data
-       echo "Checking processed files:"
-       ls -la app/public/processed_data/
+       echo "Checking processed FluSight files:"
+       ls -la app/public/processed_data/datasets/flusight/projections/
+       ls -la app/public/processed_data/datasets/flusight/
        
    - name: Process RSV data
      run: |
        python scripts/process_rsv_data.py --hub-path ./rsv-forecast-hub --output-path ./app/public/processed_data
        echo "Checking processed RSV files:"
-       ls -la app/public/processed_data/rsv/
+       ls -la app/public/processed_data/datasets/rsv_hub/projections/ # V2 path
+       ls -la app/public/processed_data/datasets/rsv_hub/ # V2 path for metadata
+       
+   - name: Process NHSN data
+     run: |
+       python scripts/process_nhsn_data.py --output-path ./app/public/processed_data --locations-path ./FluSight-forecast-hub/auxiliary-data/locations.csv
+       echo "Checking processed NHSN files:"
+       ls -la app/public/processed_data/datasets/nhsn/timeseries/ # V2 path
+       ls -la app/public/processed_data/datasets/nhsn/ # V2 path for metadata
+
+   - name: Validate processed data
+     run: |
+       python scripts/validate_processed_data.py app/public/processed_data
        
    - name: Upload processed data
      uses: actions/upload-artifact@v4

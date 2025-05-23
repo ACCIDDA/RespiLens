@@ -28,7 +28,8 @@ const NHSNRawView = ({ location }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const url = getDataPath(`nhsn/${location}_nhsn.json`);
+        // Use currentDataset.dataPath for the URL
+        const url = getDataPath(`${currentDataset.dataPath}/${location}.json`);
         console.log('Fetching NHSN data from:', url);
 
         const response = await fetch(url);
@@ -45,23 +46,22 @@ const NHSNRawView = ({ location }) => {
         console.log('Raw NHSN response:', text.slice(0, 500) + '...');
 
         const jsonData = JSON.parse(text);
-        console.log('Parsed NHSN data structure:', {
-          hasMetadata: !!jsonData.metadata,
-          hasData: !!jsonData.data,
-          hasGroundTruth: !!jsonData.ground_truth,
+        console.log('Parsed NHSN data structure (V2):', {
+          hasOfficial: !!jsonData.official,
+          hasPreliminary: !!jsonData.preliminary,
           topLevelKeys: Object.keys(jsonData)
         });
 
-        // Validate the data structure
-        if (!jsonData.data || !jsonData.data.official) {
-          throw new Error('Invalid data format');
+        // Validate the data structure (V2)
+        if (!jsonData.official && !jsonData.preliminary) {
+          throw new Error('Invalid data format: Missing both official and preliminary data.');
         }
 
         setData(jsonData);
 
-        // Get available columns (only those with data)
-        const officialCols = Object.keys(jsonData.data.official).sort();
-        const prelimCols = Object.keys(jsonData.data.preliminary || {}).sort();
+        // Get available columns (only those with data) (V2)
+        const officialCols = Object.keys(jsonData.official?.series?.columns || {}).sort();
+        const prelimCols = Object.keys(jsonData.preliminary?.series?.columns || {}).sort();
 
         setAvailableColumns({
           official: officialCols,
@@ -109,38 +109,79 @@ const NHSNRawView = ({ location }) => {
   if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
   if (!data) return <div className="p-4">No NHSN data available for this location</div>;
 
-  const traces = selectedColumns.map((column, index) => {
-    // Add this line to determine the data type
-    const isPrelimininary = column.includes('_prelim');
-    const dataType = isPrelimininary ? 'preliminary' : 'official';
-    const columnIndex = [...availableColumns.official, ...availableColumns.preliminary].indexOf(column);
+  const traces = selectedColumns.map((columnName, index) => {
+    let seriesData;
+    let seriesDates;
+    let seriesTypeLabel = '';
+    let titleLocationName = 'N/A';
+
+    if (data.official?.series?.columns[columnName] && data.official?.series?.dates) {
+      seriesData = data.official.series.columns[columnName];
+      seriesDates = data.official.series.dates;
+      seriesTypeLabel = ' (Official)';
+      titleLocationName = data.official.metadata.location_name || titleLocationName;
+    } else if (data.preliminary?.series?.columns[columnName] && data.preliminary?.series?.dates) {
+      seriesData = data.preliminary.series.columns[columnName];
+      seriesDates = data.preliminary.series.dates;
+      seriesTypeLabel = ' (Preliminary)';
+      titleLocationName = data.preliminary.metadata.location_name || titleLocationName;
+    }
+
+    if (!seriesData || !seriesDates || seriesDates.length === 0) return null;
+
+    const colorIndex = [...availableColumns.official, ...availableColumns.preliminary].indexOf(columnName);
 
     return {
-      x: data.ground_truth.dates,
-      y: data.data[dataType][column],
-      name: column,
+      x: seriesDates,
+      y: seriesData,
+      name: `${columnName}${seriesTypeLabel}`,
       type: 'scatter',
       mode: 'lines+markers',
       line: {
-        color: VISUALIZATION_COLORS[columnIndex % VISUALIZATION_COLORS.length],
+        color: VISUALIZATION_COLORS[colorIndex % VISUALIZATION_COLORS.length],
         width: 2
       },
       marker: { size: 6 }
     };
-  });
+  }).filter(Boolean); // Remove null traces
+
+  // Determine title and x-axis range from the first available series or data
+  let plotTitle = 'NHSN Raw Data';
+  let xaxisRange = [null, null]; // Default to auto-range
+
+  if (traces.length > 0 && traces[0].x && traces[0].x.length > 0) {
+    // Attempt to get location name from the first trace's source metadata
+    const firstTraceName = traces[0].name;
+    let firstTraceSourceMetadata;
+    if (firstTraceName.includes('(Official)') && data.official?.metadata) {
+        firstTraceSourceMetadata = data.official.metadata;
+    } else if (firstTraceName.includes('(Preliminary)') && data.preliminary?.metadata) {
+        firstTraceSourceMetadata = data.preliminary.metadata;
+    } else if (data.official?.metadata) { // Fallback if label is missing for some reason
+        firstTraceSourceMetadata = data.official.metadata;
+    } else if (data.preliminary?.metadata) {
+        firstTraceSourceMetadata = data.preliminary.metadata;
+    }
+
+    if (firstTraceSourceMetadata?.location_name) {
+        plotTitle = `NHSN Raw Data for ${firstTraceSourceMetadata.location_name}`;
+    }
+    xaxisRange = [traces[0].x[0], traces[0].x[traces[0].x.length - 1]];
+  } else if (data.official?.metadata?.location_name) {
+    plotTitle = `NHSN Raw Data for ${data.official.metadata.location_name}`;
+  } else if (data.preliminary?.metadata?.location_name) {
+    plotTitle = `NHSN Raw Data for ${data.preliminary.metadata.location_name}`;
+  }
+
 
   const layout = {
-    title: `NHSN Raw Data for ${data.metadata.location_name}`,
+    title: plotTitle,
     xaxis: {
       title: 'Date',
       rangeslider: {
         visible: true
       },
-      // Set default range to show all dates
-      range: [
-        data.ground_truth.dates[0],
-        data.ground_truth.dates[data.ground_truth.dates.length - 1]
-      ]
+      range: xaxisRange
     },
     yaxis: {
       title: 'Value'

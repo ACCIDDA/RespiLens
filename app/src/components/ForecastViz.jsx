@@ -158,13 +158,20 @@ const ForecastViz = ({ location, handleStateSelect }) => {
         // setModels([]);
 
         // Determine which file to load based on view type
-        const prefix = viewType === 'rsvdetailed' ? 'rsv' : 'flusight';
-        const url = getDataPath(`${prefix}/${location}_${prefix}.json`);
+        const dataPathForFetching = currentDataset?.dataPath;
+        if (!dataPathForFetching) {
+            console.error("dataPath not found in currentDataset", currentDataset);
+            setError(`Data path not configured for dataset: ${currentDataset?.shortName || 'current view'}`);
+            setLoading(false);
+            return;
+        }
+
+        const url = getDataPath(`${dataPathForFetching}/${location}.json`);
         console.log('Attempting to fetch:', url);
 
         const response = await fetch(url);
         if (!response.ok) {
-          throw new Error(`Failed to load ${prefix} data for ${location} (status ${response.status})`);
+          throw new Error(`Failed to load data from ${url} for ${location} (status ${response.status})`);
         }
 
         const text = await response.text();

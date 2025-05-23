@@ -8,7 +8,7 @@ export const DATASETS = {
     hasDateSelector: true,
     hasModelSelector: true,
     prefix: 'flu',
-    dataPath: 'flusight'
+    dataPath: 'datasets/flusight/projections'
   },
   rsv: {
     shortName: 'rsv',
@@ -19,7 +19,7 @@ export const DATASETS = {
     hasDateSelector: true,
     hasModelSelector: true,
     prefix: 'rsv',
-    dataPath: 'rsv'
+    dataPath: 'datasets/rsv_hub/projections'
   },
   nhsn: {
     shortName: 'nhsn',
@@ -29,7 +29,7 @@ export const DATASETS = {
     hasDateSelector: false,
     hasModelSelector: false,
     prefix: 'nhsn',
-    dataPath: 'nhsn'
+    dataPath: 'datasets/nhsn/timeseries'
   }
 };
 
