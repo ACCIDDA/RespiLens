@@ -28,7 +28,7 @@ from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 
 from metadata_builder import metadata_builder
-from save_RespiLens_data import save_data, save_metadata
+from save_respilens_data import save_data, save_metadata
 
 SCRIPT_DIR = Path(__file__).parent
 with open(SCRIPT_DIR / "location-metadata.schema.json", "r") as f:
