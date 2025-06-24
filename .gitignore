@@ -1,4 +1,5 @@
-scripts/__pycache__/
+__pycache__/
+*.pyc
 FluSight-forecast-hub/
 app/public/processed_data
 processed_data/
