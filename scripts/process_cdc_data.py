@@ -14,9 +14,19 @@ import os
 import time
 from datetime import date
 from pathlib import Path
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 import pandas as pd
 import requests
+
+from metadata_builder import metadata_builder
+from save_RespiLens_data import save_data, save_metadata
+
+SCRIPT_DIR = Path(__file__).parent
+SCHEMA_DIR = SCRIPT_DIR / "schemas"
+with open(SCHEMA_DIR / "respilens-data.schema.json", "r") as f:
+    RESPILENS_DATA_SCHEMA = json.load(f)
 
 
 # Set up logging
@@ -64,7 +74,13 @@ class CDCData:
         CDC_metadata = metadata_response.json() 
 
         # Build RespiLens-relevant metadata
-        output["respilens_metadata"] = self.build_respilens_metadata()
+        # output["respilens_metadata"] = self.build_respilens_metadata()
+        output["respilens_metadata"] = metadata_builder(
+            shortName="nhsn",
+            fullName="National Healthcare Safety Network (NHSN)",
+            defaultView="nhsn",
+            datasetType="timeseries")
+
           
         # Retrieve data from endpoint, convert to pd.DataFrame
         logger.info(f"Retrieving data from {self.data_url}.") 
@@ -171,15 +187,6 @@ class CDCData:
                 
         return all_data
     
-    def build_respilens_metadata(self) -> dict:
-        metadata_struct = { 
-            "shortName": "nhsn",
-            "fullName": "National Healthcare Safety Network (NHSN)",
-            "defaultView": "nhsn",
-            "lastUpdated": date.today().strftime("%Y-%m-%d"),
-            "datsetType": "timeseries"
-        }
-        return metadata_struct
     
     def replace_column_names(self, data: pd.DataFrame, CDC_metadata: dict) -> pd.DataFrame:
         """
@@ -217,7 +224,7 @@ class CDCData:
         """
         
         # Create directories
-        output_directory = self.output_path / "nhsn"
+        output_directory = self.output_path 
         os.makedirs(output_directory, exist_ok=True)
         logger.info(f"Saving data as CSV to {output_directory}...")
         
@@ -225,34 +232,9 @@ class CDCData:
         unique_regions = set(data["jurisdiction"])
         for region in unique_regions:
             current_loc = data[data["jurisdiction"] == region]
-            current_loc.to_csv(f"{output_directory}/nhsn/{region}.csv", index = False)
-            with open(f"{output_directory}/metadata.json", "w") as metadata_json_file:
-                json.dump(respilens_metadata, metadata_json_file, indent = 4)
-            
-        logger.info("Success.")
-    
-    def save_data_json(self, data: dict, respilens_metadata: dict) -> None:  
-        """
-        A method to save data at specified output_path as a json.
-        
-        Args:
-            data: A dict containing the data in raw json format, separated by region
-            respilens_metadata: A dict containing the metadata in raw json format. 
-        """
-        
-        # Create directories
-        output_directory = self.output_path / "nhsn"
-        os.makedirs(output_directory, exist_ok=True)
-        logger.info(f"Saving data as json to {output_directory}...")
-        
-        # Save data and metadata to json
-        for region, region_data in data.items():
-            output_file = os.path.join(output_directory, f"{region}.json")
-            with open(output_file, "w") as data_json_file:
-                json.dump(region_data, data_json_file, indent = 4)
-
+            current_loc.to_csv(f"{output_directory}/{region}.csv", index = False)
         with open(f"{output_directory}/metadata.json", "w") as metadata_json_file:
-            json.dump(respilens_metadata, metadata_json_file, indent = 4) 
+            json.dump(respilens_metadata, metadata_json_file, indent = 4)
             
         logger.info("Success.")
         
@@ -287,17 +269,44 @@ def main():
     
     try:
         # Initialize the CDCData instance
-        cdc_data = CDCData(args.resource_id, args.output_path)
+        cdc_data = CDCData(args.resource_id, args.output_path) # TODO: remove output path as an arg for this class?
     
         # Store data and metadata from resource_id in a dictionary 
         data_and_metadata = cdc_data.download_cdc_data(args.replace_column_names)
+
+        non_RL_formatted_location_dicts = []
+        for region in data_and_metadata["data"].keys():
+            try:
+                validate(instance=data_and_metadata["data"][region], schema=RESPILENS_DATA_SCHEMA)
+            except ValidationError as e:
+                non_RL_formatted_location_dicts.append(data_and_metadata["data"][region])
+        if non_RL_formatted_location_dicts:
+            raise ValueError(f"Final JSON for locations {non_RL_formatted_location_dicts} failed RespiLens schema validation.")
     
         if args.output_format:
             # Save data locally, according to user input
-            if "csv" in args.output_format:
+            if "csv" in args.output_format: # TODO: keep or remove this?
                 cdc_data.save_data_csv(data_and_metadata["data_as_DF"], data_and_metadata["respilens_metadata"])
             if "json" in args.output_format:
-                cdc_data.save_data_json(data_and_metadata["data"], data_and_metadata["respilens_metadata"])
+                logger.info(f"Saving data as json to {args.output_path}.")
+                saved_files_count = 0
+                unsaved_files = []
+                for region, region_data in data_and_metadata["data"].items():
+                    try:
+                        save_data(region_data, args.output_path)
+                        saved_files_count += 1
+                    except (FileExistsError, ValueError) as e:
+                        unsaved_files.append((region, e))
+                
+                # Save the single metadata file
+                save_metadata(data_and_metadata["respilens_metadata"], args.output_path)
+
+                # Report successes and failures
+                logger.info(f"Successfully saved JSON data for {saved_files_count} regions.")
+                if unsaved_files:
+                    logger.warning(f"Failed to save JSON data for {len(unsaved_files)} regions:")
+                    for region, error in unsaved_files:
+                        logger.warning(f"  - Region: {region}, Reason: {error}")
             
         # Edge case
         else:
@@ -306,7 +315,7 @@ def main():
     except Exception as e:
         logger.error(f"Failed to download and/or save CDC data: {str(e)}")
         raise    
-
+    
 
 if __name__ == "__main__":
     main()
