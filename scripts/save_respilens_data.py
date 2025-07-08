@@ -13,7 +13,8 @@ from jsonschema.exceptions import ValidationError
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
-with open(SCRIPT_DIR / "respilens-data.schema.json", "r") as f:
+SCHEMA_DIR = SCRIPT_DIR / "schemas"
+with open(SCHEMA_DIR / "respilens-data.schema.json", "r") as f:
     RESPILENS_DATA_SCHEMA = json.load(f)
 
 
@@ -33,6 +34,12 @@ def save_data(data: dict, output_path: str | Path) -> None:
         validate(instance=data, schema=RESPILENS_DATA_SCHEMA)
     except ValidationError as e:
         raise ValueError("Data does not match RespiLens jsonschema.") from e
+
+    output_file_path = output_path / f"{data['metadata']['location']}.json"
+
+    # Check if the file already exists before opening it for writing
+    if output_file_path.is_file():
+        raise FileExistsError(f"There is a pre-existing file titled {output_file_path}.") 
 
     # Save data 
     output_file = os.path.join(output_path, f"{data["metadata"]["location"]}.json") 

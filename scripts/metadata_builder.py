@@ -8,16 +8,15 @@ Functions:
 from datetime import date
 
 
-def metadata_builder(shortName: str, fullName: str = "", defaultView: str = "", datasetType: str = "") -> dict:
+def metadata_builder(shortName: str = "", fullName: str = "", defaultView: str = "", datasetType: str = "") -> dict:
     """
     Builds RespiLens metadata from user input.
 
     Args:
         shortName: Short or abbreviated name of the dataset data was pulled from.
         fullName: Full name of the dataset data was pulled from.
-        defaultView: Which view data belongs in.
-        lastUpdated: Day of metadata creation
-        datasetType: The type of data 
+        defaultView: Which view the data belongs in.
+        datasetType: The type of data. 
     """
 
     metadata_struct = { 

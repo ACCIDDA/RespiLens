@@ -21,9 +21,11 @@ import copy
 import json
 import logging
 import sys
+import time  
 from pathlib import Path
 
 import pandas as pd
+from datetime import date
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 
@@ -31,13 +33,34 @@ from metadata_builder import metadata_builder
 from save_respilens_data import save_data, save_metadata
 
 SCRIPT_DIR = Path(__file__).parent
-with open(SCRIPT_DIR / "location-metadata.schema.json", "r") as f:
+SCHEMA_DIR = SCRIPT_DIR / "schemas"
+with open(SCHEMA_DIR / "location-metadata.schema.json", "r") as f:
     LOCATION_METADATA_SCHEMA = json.load(f)
-with open(SCRIPT_DIR / "respilens-data.schema.json", "r") as f:
+with open(SCHEMA_DIR / "respilens-data.schema.json", "r") as f:
     RESPILENS_DATA_SCHEMA = json.load(f)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+class LoggedOperation:
+    """
+    A context manager to log the start, success/failure, and duration of an operation.
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        logger.info(f"Starting: {self.name}...")
+        self.start_time = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        duration = time.time() - self.start_time
+        if exc_type is None:
+            logger.info(f"Success: '{self.name}' completed in {duration:.2f}s.")
+        else:
+            logger.error(f"Failed: '{self.name}' failed after {duration:.2f}s. Reason: {exc_val}")
 
 
 class ExternalData:
@@ -64,7 +87,6 @@ class ExternalData:
             location_metadata_path: JSON-style metadata for your locations. 
             dataset: What dataset the data is pulled from; e.g., 'CDC'
         """
-
         logger.info(f"Processing file at {data_path}.")
         self.dataset = dataset
         self.json_struct = {
@@ -83,30 +105,28 @@ class ExternalData:
         self.ext = data_path.suffix.lower()
 
         if self.ext == '.csv':
-            self.data = pd.read_csv(data_path)
+            with LoggedOperation(f"Reading data from {data_path.name}"):
+                self.data = pd.read_csv(data_path)
 
-            # Validate DF contents
             self._validate_df()
             self._convert_to_ISO8601_date()
 
-            # Validate location metadata using jsonschema, create map from all possible identifiers to abbreviation
-            location_metadata_path = Path(location_metadata_path)
-            self.location_metadata = json.loads(location_metadata_path.read_text())
+            with LoggedOperation("Loading location metadata"):
+                location_metadata_path = Path(location_metadata_path)
+                self.location_metadata = json.loads(location_metadata_path.read_text())
+
             self._validate_and_map_locations()
 
-            # Convert validated DataFrame to RespiLens-formatted JSON, confirm it is valid RespiLens data (final validation step)
             self.RespiLens_data = self._convert_from_df()
-            logger.info("Validating final RespiLens JSON data...")
-            for location_entry in self.RespiLens_data.keys():
-                try:
-                    validate(instance=self.RespiLens_data[location_entry], schema=RESPILENS_DATA_SCHEMA)
-                except ValidationError as e:
-                    raise ValueError(f"Final RespiLens JSON did not match jsonschema. First failed location entry is {location_entry}.") from e
-            logger.info("Success.")
 
+            with LoggedOperation("Final validation of RespiLens JSON data against schema"):
+                for location_entry in self.RespiLens_data.keys():
+                    try:
+                        validate(instance=self.RespiLens_data[location_entry], schema=RESPILENS_DATA_SCHEMA)
+                    except ValidationError as e:
+                        raise ValueError(f"Final JSON for location '{location_entry}' failed schema validation.") from e
         else:
             raise ValueError(f"Unsupported file type: {self.ext}. File must be a CSV.")
-
 
     def _validate_df(self) -> None:
         """
@@ -114,22 +134,17 @@ class ExternalData:
             - 'location' and 'date' columns are present
             - If locations are listed as FIPS codes, single digits are padded with a leading 0
         """
+        with LoggedOperation("DataFrame column and format validation"):
+            required_cols = {'location', 'date'}
+            missing_cols = required_cols.difference(self.data.columns)
+            if missing_cols:
+                raise KeyError(f"Input data is missing required columns: {sorted(list(missing_cols))}. Columns are case-sensitive.")
 
-        logger.info("Ensuring that DataFrame data contains a location and date column")
-        # Ensure that data contains columns 'location' and 'date', stop execution if not
-        # Define the exact required columns as a set
-        required_cols = {'location', 'date'}
-        missing_cols = required_cols.difference(self.data.columns)
-        if missing_cols:
-            raise KeyError(f"Input data is missing required columns: {sorted(list(missing_cols))}. Columns are case-sensitive.")
-        self.location_col = 'location'
-        self.date_col = 'date'
+            self.location_col = 'location'
+            self.date_col = 'date'
 
-        # Pad FIPS codes with a leading 0 if they are only 1 digit
-        self.data[self.location_col] = self.data[self.location_col].astype(str).str.zfill(2)
-
-        logger.info("Success.")
-
+            # Pad FIPS codes with a leading 0 if they are only 1 digit
+            self.data[self.location_col] = self.data[self.location_col].astype(str).str.zfill(2)
 
     def _validate_and_map_locations(self) -> None:
         """
@@ -138,162 +153,146 @@ class ExternalData:
         Ensure that locations provided in DataFrame location column can be mapped (via location metadata) to
         a two-character abbreviation that RespiLens stipulates.
         """
+        with LoggedOperation("Location metadata validation and identifier mapping"):
+            # Validate the location_metadata structure with jsonschema
+            try:
+                validate(instance=self.location_metadata, schema=LOCATION_METADATA_SCHEMA)
+            except ValidationError as e:
+                raise ValueError("Location metadata file does not comply with RespiLens schema.") from e
 
-        # Validate location_metadata structure using .validate_jsonschema() method
-        logger.info("Validating location metadata...")
-        try:
-            validate(instance=self.location_metadata, schema=LOCATION_METADATA_SCHEMA)
-        except ValidationError as e:
-            logger.info("Cannot proceed with data conversion if location metadata does not match RespiLens standards.")
-            raise ValueError("Location metadata does not comply with RespiLens schema.") from e
-        logger.info("Success.")
+            # Create a mapping from all possible identifiers to the abbreviation
+            loc_identifier_to_abbrv_map = {}
+            for entry in self.location_metadata:
+                abbreviation = entry['abbreviation']
+                loc_identifier_to_abbrv_map[entry['name'].lower()] = abbreviation
+                loc_identifier_to_abbrv_map[entry['location']] = abbreviation
+                loc_identifier_to_abbrv_map[entry['abbreviation'].lower()] = abbreviation
 
-        # Map and match metadata locations to DF locations
-        logger.info("Mapping various location identifiers to location abbreviations...")
-        loc_identifier_to_abbrv_map = {}
-        for entry in self.location_metadata:
-            abbreviation = entry['abbreviation']
-            loc_identifier_to_abbrv_map[entry['name'].lower()] = abbreviation
-            loc_identifier_to_abbrv_map[entry['location']] = abbreviation
-            loc_identifier_to_abbrv_map[entry['abbreviation'].lower()] = abbreviation
-        logger.info("Success")
-        logger.info(f"Matching locations in '{self.location_col}' col to metadata...")
-        loc_abbrv_list = self.data[self.location_col].astype(str).str.lower().map(loc_identifier_to_abbrv_map).tolist()
-        self.data['abbreviation'] = loc_abbrv_list
-        if pd.isna(self.data['abbreviation']).any():
-            locs_with_nans = self.data[pd.isna(self.data['abbreviation'])][self.location_col].unique()
-            raise ValueError(f"Could not find a metadata abbreviation match for the following locations: {list(locs_with_nans)}")
-        logger.info("Success.")
+            # Use the map to match abbreviations for locations in the data
+            self.data['abbreviation'] = self.data[self.location_col].astype(str).str.lower().map(loc_identifier_to_abbrv_map)
 
+            if self.data['abbreviation'].isna().any():
+                locs_with_nans = self.data[self.data['abbreviation'].isna()][self.location_col].unique()
+                raise ValueError(f"Could not find a metadata abbreviation match for the following locations: {list(locs_with_nans)}")
 
-    def _convert_to_ISO8601_date(self) -> None: 
+    def _convert_to_ISO8601_date(self) -> None:
         """
         Converts self.data dates to strs in ISO 8601 format.
         """
+        with LoggedOperation("Date column conversion to ISO 8601 format"):
+            try:
+                self.data[self.date_col] = pd.to_datetime(
+                    self.data[self.date_col],
+                    errors='raise',
+                    format='mixed'
+                ).dt.strftime('%Y-%m-%d')
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Failed to normalize dates in column '{self.date_col}'. Ensure all dates are in a recognizable format.") from e
 
-        logger.info("Converting dates into ISO 8601 strings...")
-        try:
-            self.data[self.date_col] = pd.to_datetime(
-                self.data[self.date_col], 
-                errors='raise', 
-                format='mixed'
-            ).dt.strftime('%Y-%m-%d')
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Failed to normalize dates in column '{self.date_col}'. Ensure all dates are in recognizable format.") from e
-        logger.info("Success.")
-        
-
-    def _convert_from_df(self) -> dict: 
+    def _convert_from_df(self) -> dict:
         """
         Converts external .csv data into RespiLens-formatted JSON data.
 
         Returns:
-            A dict where each unique location has a RespiLens JSON entry.
+            A dict where each entry is a unique location from .CSV.
         """
+        with LoggedOperation("Data conversion to RespiLens JSON format"):
+            return_json = {}
+            unique_locations = self.data['abbreviation'].unique()
 
-        # Create JSON to store the properly formatted data
-        return_json = {}
+            for location_abbrv in unique_locations:
+                json_entry = copy.deepcopy(self.json_struct)
+                json_entry["metadata"]["location"] = location_abbrv
 
-        logger.info("Converting data to RespiLens JSON format...")
-        # Populate a JSON entry with properly formatted unique location data
-        unique_locations = set(list(self.data['abbreviation'])) 
-        for location_abbrv in unique_locations:
-            json_entry = copy.deepcopy(self.json_struct)
-            json_entry["metadata"]["location"] = location_abbrv # add loc to metadata header
-            current_loc_df = self.data[self.data['abbreviation'] == location_abbrv]
-            json_entry["series"]["dates"] = list(current_loc_df[self.date_col]) # add date range to dates key
-            for column in current_loc_df.columns:
-                if column in (self.location_col, self.date_col, 'abbreviation'):
-                    continue
-                else:
-                    json_entry["series"]["columns"][column] = list(current_loc_df[column])
-            
-            # Add to larger JSON
-            return_json[location_abbrv] = json_entry
-        
-        logger.info("Success.")
+                current_loc_df = self.data[self.data['abbreviation'] == location_abbrv]
+                json_entry["series"]["dates"] = list(current_loc_df[self.date_col])
+
+                for column in current_loc_df.columns:
+                    if column not in (self.location_col, self.date_col, 'abbreviation'):
+                        json_entry["series"]["columns"][column] = list(current_loc_df[column])
+
+                return_json[location_abbrv] = json_entry
+
         return return_json
 
 
-def main(): 
+def main():
     """
     Main execution function.
     """
 
-    parser = argparse.ArgumentParser(description = "Convert external data to RespiLens JSON format.")
+    parser = argparse.ArgumentParser(description="Convert external data to RespiLens JSON format.")
     parser.add_argument("--data-path",
-                        type = str,
-                        required = True,
-                        help = "Path to data, either a single file or directory with multiple files. File(s) must be CSVs.")
+                        type=str,
+                        required=True,
+                        help="Path to data, either a single file or directory with multiple files. File(s) must be CSVs.")
     parser.add_argument("--location-metadata-path",
-                        type = str,
-                        required = True,
-                        help = "Path to location metadata (must be a single JSON file)")
+                        type=str,
+                        required=True,
+                        help="Path to location metadata (must be a single JSON file)")
     parser.add_argument("--dataset",
-                        type = str,
-                        required = True,
-                        help = "What dataset the data is pulled from (for metadata purposes).")
-    parser.add_argument("--output-path", 
-                        type = str,
-                        required = True,
-                        help = "Path to directory to save data to.")
+                        type=str,
+                        required=True,
+                        help="What dataset the data is pulled from (for metadata purposes).")
+    parser.add_argument("--output-path",
+                        type=str,
+                        required=True,
+                        help="Path to directory to save data to.")
     args = parser.parse_args()
-    if not (Path(args.location_metadata_path).is_file()) or (Path(args.location_metadata_path).suffix.lower() != '.json'):
-        logger.error(f"The provided location metadata path '{args.location_metadata_path}' is not a valid JSON file.")
-        sys.exit(1)
     
-    files_to_process = []
-    unconverted_file_paths = []
-    converted_file_paths = []
-    list_of_converted_RespiLens_data_objects = []
+    with LoggedOperation(f"Entire conversion process for dataset '{args.dataset}'"):
+        if not (Path(args.location_metadata_path).is_file()) or (Path(args.location_metadata_path).suffix.lower() != '.json'):
+            logger.error(f"The provided location metadata path '{args.location_metadata_path}' is not a valid JSON file.")
+            sys.exit(1)
 
-    if Path(args.data_path).is_file():
-        files_to_process.append(args.data_path)
-    elif Path(args.data_path).is_dir():
-        files_to_process = [f for f in Path(args.data_path).glob('*') if f.is_file()] 
-    
-    for file in files_to_process:
-        try:
-            converter_object = ExternalData(file, args.location_metadata_path, args.dataset)
-            converted_file_paths.append(file)
-            list_of_converted_RespiLens_data_objects.append((converter_object, file))
-        except Exception:
-            unconverted_file_paths.append(file)
-    if unconverted_file_paths:
-        if not converted_file_paths: 
-            raise RuntimeError("Failed to convert all files provided. Ensure all data is a CSV and contains 'location' and 'date' columns.")
-        logger.info(f"Failed to convert {len(unconverted_file_paths)}/{len(converted_file_paths)} files:")
-        for bad_file in unconverted_file_paths:
-            logger.info(f"{bad_file.name}")
-        logger.info("Proceeding for successfully converted files.")
+        list_of_converted_RespiLens_data_objects = []
+        unconverted_file_paths = []
+        
+        with LoggedOperation("Identifying and processing all source files"):
+            files_to_process = []
+            if Path(args.data_path).is_file():
+                files_to_process.append(Path(args.data_path))
+            elif Path(args.data_path).is_dir():
+                files_to_process = [f for f in Path(args.data_path).glob('*.csv') if f.is_file()]
+            
+            logger.info(f"Found {len(files_to_process)} .csv file(s) to process.")
 
-    logger.info("Building metadata...")    
-    metadata = metadata_builder(args.dataset)
-    logger.info("Success, missing metadata fields can be filled in manually.")
-    logger.info("Saving metadata...")
-    try:
-        save_metadata(metadata, args.output_path)
-    except Exception as e:
-        raise RuntimeError("Failed to save metadata.") from e
-    logger.info("Success.")
-    
-    unsaved_files = []
-    saved_files = []
-    logger.info("Saving data...") 
-    for entry in list_of_converted_RespiLens_data_objects:
-        for location, location_data in entry[0].RespiLens_data.items(): 
-            try:
-                save_data(location_data, args.output_path)
-                saved_files.append((location, entry[1]))
-            except Exception as e:
-                unsaved_files.append((location, entry[1]))
-        if unsaved_files:
-            logger.info(f"Failed to save {len(unsaved_files)} files:")
-            for unsaved_file_tuple in unsaved_files:
-                logger.info(f"{unsaved_file_tuple[0]}.json from your file {unsaved_file_tuple[1]}")
+            for file in files_to_process:
+                try:
+                    converter_object = ExternalData(file, args.location_metadata_path, args.dataset)
+                    list_of_converted_RespiLens_data_objects.append((converter_object, file))
+                except Exception as e:
+                    logger.error(f"Failed to process file: {file.name}. Skipping. Reason: {e}")
+                    unconverted_file_paths.append(file)
+        
+        if unconverted_file_paths and not list_of_converted_RespiLens_data_objects:
+            raise RuntimeError("Failed to convert all files provided. Check logs for details.")
 
-    logger.info("Process complete.")
-    
+        with LoggedOperation("Building and saving new metadata"):
+            metadata = metadata_builder(args.dataset)
+            logger.info("Missing metadata fields can be filled in manually after completion.")
+            save_metadata(metadata, args.output_path)
+
+        with LoggedOperation("Saving all converted RespiLens data"):
+            unsaved_files = []
+            saved_count = 0
+            for converter_object, source_file in list_of_converted_RespiLens_data_objects:
+                for location, location_data in converter_object.RespiLens_data.items():
+                    try:
+                        save_data(location_data, args.output_path)
+                        saved_count += 1
+                    except FileExistsError as e:
+                        logger.critical(f"FATAL: Attempted to overwrite file for location '{location}'.")
+                        logger.critical(f"If attempting to update data, please ensure directory is clear first.")
+                        raise FileExistsError(f"{e}")
+                    except Exception as e:
+                        unsaved_files.append((location, source_file.name, e))
+
+            logger.info(f"Successfully saved data for {saved_count} locations.")
+            if unsaved_files:
+                logger.warning(f"Failed to save data for {len(unsaved_files)} locations:")
+                for loc, fname, err in unsaved_files:
+                    logger.warning(f"  - Location: {loc} (from file {fname}). Reason: {err}")
 
 if __name__ == "__main__":
     main()
