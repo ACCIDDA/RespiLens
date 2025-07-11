@@ -59,8 +59,9 @@ class CDCData:
         
         Returns:
             A dictionary with;
-                'data_as_DF' storing data in a pd.DataFrame,
-                'data' storing data in json format for each jurisdiction, 
+                'data_as_DF' storing data in a pd.DataFrame ('jursidiction' and 'weekendingdates' columns are 
+                    standardized as 'location' and 'date'),
+                'data' storing data in json format for each location, 
                 'CDC_metadata' storing metadata from API as a dictionary of raw json, and
                 'respilens_metadata' storing RespiLens-relevant metadata as a dictionary of raw json.
         """
@@ -141,7 +142,19 @@ class CDCData:
                 del json_struct["series"]["columns"]["weekendingdate"] 
                 jsons[region] = json_struct
         
-                    
+        # Standardize column names for the output DataFrame to ensure RespiLens compatibility.
+        df = output["data_as_DF"]
+        rename_map = {
+            "Geographic aggregation": "location",
+            "jurisdiction": "location",
+            "Week Ending Date": "date",
+            "weekendingdate": "date"
+        }
+        # Select only the columns that exist in the DataFrame to avoid KeyErrors
+        actual_rename_map = {k: v for k, v in rename_map.items() if k in df.columns}
+        df.rename(columns=actual_rename_map, inplace=True)
+        output["data_as_DF"] = df
+
         # Add data and metadata variations to output dict
         output["CDC_metadata"] = CDC_metadata  
         output["data"] = jsons
@@ -229,9 +242,9 @@ class CDCData:
         logger.info(f"Saving data as CSV to {output_directory}...")
         
         # Save data to CSVs, metadata to json
-        unique_regions = set(data["jurisdiction"])
+        unique_regions = set(data["location"])
         for region in unique_regions:
-            current_loc = data[data["jurisdiction"] == region]
+            current_loc = data[data["location"] == region]
             current_loc.to_csv(f"{output_directory}/{region}.csv", index = False)
         with open(f"{output_directory}/metadata.json", "w") as metadata_json_file:
             json.dump(respilens_metadata, metadata_json_file, indent = 4)
@@ -269,7 +282,7 @@ def main():
     
     try:
         # Initialize the CDCData instance
-        cdc_data = CDCData(args.resource_id, args.output_path) # TODO: remove output path as an arg for this class?
+        cdc_data = CDCData(args.resource_id, args.output_path) 
     
         # Store data and metadata from resource_id in a dictionary 
         data_and_metadata = cdc_data.download_cdc_data(args.replace_column_names)
@@ -285,7 +298,7 @@ def main():
     
         if args.output_format:
             # Save data locally, according to user input
-            if "csv" in args.output_format: # TODO: keep or remove this?
+            if "csv" in args.output_format: 
                 cdc_data.save_data_csv(data_and_metadata["data_as_DF"], data_and_metadata["respilens_metadata"])
             if "json" in args.output_format:
                 logger.info(f"Saving data as json to {args.output_path}.")
