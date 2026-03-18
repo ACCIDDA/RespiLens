@@ -143,7 +143,7 @@ def main():
     
     if args.flu_metrocast_hub_path:
         # Use HubdataPy to get all flu-metrocast data in one df
-        logger.info("Establishing conneciton to local flu metrocast repository...")
+        logger.info("Establishing connection to local flu metrocast repository...")
         flu_metrocast_hub_conn = connect_hub(args.flu_metrocast_hub_path)
         logger.info("Success ✅")
         logger.info("Collecting data from flu metrocast repo...")
@@ -151,7 +151,7 @@ def main():
         flu_metrocast_locations_data = clean_nan_values(pd.read_csv(Path(args.flu_metrocast_hub_path) / 'auxiliary-data/locations.csv'))
         flu_metrocast_target_data = clean_nan_values(connect_target_data(hub_path=args.flu_metrocast_hub_path, target_type=TargetType.TIME_SERIES).to_table().to_pandas())
         logger.info("Success ✅")
-        # Initialize converter oject
+        # Initialize converter object
         flu_metrocast_processor_object = FluMetrocastDataProcessor(
             data=flu_metrocast_hubverse_df,
             locations_data=flu_metrocast_locations_data,
