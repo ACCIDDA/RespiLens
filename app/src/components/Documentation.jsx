@@ -219,7 +219,7 @@ const Documentation = () => {
             Hubverse structure (delineated in detail <Anchor href="https://docs.hubverse.io/en/latest/user-guide/model-output.html" target="_blank" rel="noopener noreferrer">here</Anchor>)
             refers to a tabular structure with a variety of requirements relating to column names and value types. Additionally, the script needs corresponding location
             and ground truth data in order to successfully build a RespiLens projections JSON file. The conversion pipeline's shortlist of requirements is below. Please note that
-            if you pulled your data directly from a Hubverse hub <code>.csv</code> file, it likley already conforms to conversion requirements and you can skip to the next step!
+            if you pulled your data directly from a Hubverse hub <code>.csv</code> file, it likely already conforms to conversion requirements and you can skip to the next step!
            </Text>
            <Text><strong style={{ color: '#2563eb' }}>Data Requirements</strong></Text>
            <List withPadding spacing="xs" size="m">
