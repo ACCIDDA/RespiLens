@@ -25,7 +25,15 @@ const addWeeksToDate = (dateString, weeks) => {
   return base.toISOString().slice(0, 10);
 };
 
-const TournamentLeaderboard = ({ participantId }) => {
+const getSubmissionForecasts = (submissions, challenge) => {
+  if (!submissions) return null;
+  return submissions[challenge.id] || submissions[challenge.number] || null;
+};
+
+const TournamentLeaderboard = ({
+  tournamentConfig = TOURNAMENT_CONFIG,
+  participantId,
+}) => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,7 +44,7 @@ const TournamentLeaderboard = ({ participantId }) => {
     const loadGroundTruth = async () => {
       const gtData = {};
 
-      for (const challenge of TOURNAMENT_CONFIG.challenges) {
+      for (const challenge of tournamentConfig.challenges) {
         try {
           const filePath = `/processed_data/${challenge.dataPath}/${challenge.location}_${challenge.fileSuffix}`;
           const response = await fetch(filePath);
@@ -60,7 +68,7 @@ const TournamentLeaderboard = ({ participantId }) => {
             return null;
           });
 
-          gtData[challenge.number] = groundTruthForHorizons;
+          gtData[challenge.id] = groundTruthForHorizons;
         } catch (error) {
           console.error(
             `Failed to load ground truth for challenge ${challenge.number}:`,
@@ -73,13 +81,13 @@ const TournamentLeaderboard = ({ participantId }) => {
     };
 
     loadGroundTruth();
-  }, []);
+  }, [tournamentConfig]);
 
   // Load leaderboard and calculate scores
   useEffect(() => {
     const loadAndScoreLeaderboard = async () => {
       try {
-        const data = await getLeaderboard();
+        const data = await getLeaderboard(tournamentConfig);
 
         // Calculate WIS for each participant
         const scoredLeaderboard = data.map((participant) => {
@@ -89,45 +97,53 @@ const TournamentLeaderboard = ({ participantId }) => {
           let totalUnderprediction = 0;
           let totalOverprediction = 0;
           let validChallenges = 0;
-
-          // Score each challenge
-          Object.entries(participant.submissions || {}).forEach(
-            ([challengeNum, forecasts]) => {
-              const challengeNumber = parseInt(challengeNum);
-              const groundTruth = groundTruthData[challengeNumber];
-
-              if (!groundTruth || forecasts.length === 0) return;
-
-              // Convert forecasts to the format expected by scoreUserForecast
-              const forecastEntries = forecasts.map((f) => ({
-                horizon: f.horizon,
-                median: f.median,
-                lower50: f.q25,
-                upper50: f.q75,
-                lower95: f.q025,
-                upper95: f.q975,
-              }));
-
-              // Calculate WIS with components
-              const scoreResult = scoreUserForecast(
-                forecastEntries,
-                groundTruth,
+          const activeCompletedChallenges = tournamentConfig.challenges.reduce(
+            (count, challenge) => {
+              const forecasts = getSubmissionForecasts(
+                participant.submissions,
+                challenge,
               );
-              if (scoreResult.wis !== null) {
-                challengeScores[challengeNumber] = {
-                  wis: scoreResult.wis,
-                  dispersion: scoreResult.dispersion,
-                  underprediction: scoreResult.underprediction,
-                  overprediction: scoreResult.overprediction,
-                };
-                totalWIS += scoreResult.wis;
-                totalDispersion += scoreResult.dispersion;
-                totalUnderprediction += scoreResult.underprediction;
-                totalOverprediction += scoreResult.overprediction;
-                validChallenges++;
-              }
+              return forecasts && forecasts.length > 0 ? count + 1 : count;
             },
+            0,
           );
+
+          // Score each active challenge
+          tournamentConfig.challenges.forEach((challenge) => {
+            const forecasts = getSubmissionForecasts(
+              participant.submissions,
+              challenge,
+            );
+            const groundTruth = groundTruthData[challenge.id];
+
+            if (!groundTruth || !forecasts || forecasts.length === 0) return;
+
+            // Convert forecasts to the format expected by scoreUserForecast
+            const forecastEntries = forecasts.map((f) => ({
+              horizon: f.horizon,
+              median: f.median,
+              lower50: f.q25,
+              upper50: f.q75,
+              lower95: f.q025,
+              upper95: f.q975,
+            }));
+
+            // Calculate WIS with components
+            const scoreResult = scoreUserForecast(forecastEntries, groundTruth);
+            if (scoreResult.wis !== null) {
+              challengeScores[challenge.id] = {
+                wis: scoreResult.wis,
+                dispersion: scoreResult.dispersion,
+                underprediction: scoreResult.underprediction,
+                overprediction: scoreResult.overprediction,
+              };
+              totalWIS += scoreResult.wis;
+              totalDispersion += scoreResult.dispersion;
+              totalUnderprediction += scoreResult.underprediction;
+              totalOverprediction += scoreResult.overprediction;
+              validChallenges++;
+            }
+          });
 
           const avgWIS =
             validChallenges > 0 ? totalWIS / validChallenges : null;
@@ -146,14 +162,17 @@ const TournamentLeaderboard = ({ participantId }) => {
             avgUnderprediction,
             avgOverprediction,
             validChallenges,
+            activeCompletedChallenges,
             challengeScores,
           };
         });
 
         // Sort participants: completed first (by avgWIS), then incomplete (by completed count)
         scoredLeaderboard.sort((a, b) => {
-          const aCompleted = a.completed === TOURNAMENT_CONFIG.numChallenges;
-          const bCompleted = b.completed === TOURNAMENT_CONFIG.numChallenges;
+          const aCompleted =
+            a.validChallenges === tournamentConfig.numChallenges;
+          const bCompleted =
+            b.validChallenges === tournamentConfig.numChallenges;
 
           // Both completed: sort by avgWIS (lower is better)
           if (aCompleted && bCompleted) {
@@ -167,7 +186,7 @@ const TournamentLeaderboard = ({ participantId }) => {
           if (bCompleted) return 1;
 
           // Both incomplete: sort by number of challenges completed (descending)
-          return b.completed - a.completed;
+          return b.activeCompletedChallenges - a.activeCompletedChallenges;
         });
 
         setLeaderboard(scoredLeaderboard);
@@ -186,14 +205,14 @@ const TournamentLeaderboard = ({ participantId }) => {
       // Poll for updates
       const interval = setInterval(
         loadAndScoreLeaderboard,
-        TOURNAMENT_CONFIG.leaderboard.updateFrequency,
+        tournamentConfig.leaderboard.updateFrequency,
       );
       return () => clearInterval(interval);
     }
-  }, [groundTruthData]);
+  }, [groundTruthData, tournamentConfig]);
 
   const getMedalEmoji = (rank) => {
-    return TOURNAMENT_CONFIG.ui.medals[rank] || "";
+    return tournamentConfig.ui.medals[rank] || "";
   };
 
   if (loading) {
@@ -250,7 +269,7 @@ const TournamentLeaderboard = ({ participantId }) => {
               <th>Participant</th>
               <th style={{ textAlign: "right", width: 90 }}>Avg WIS</th>
               <th style={{ textAlign: "right", width: 90 }}>Total WIS</th>
-              {TOURNAMENT_CONFIG.challenges.map((ch) => (
+              {tournamentConfig.challenges.map((ch) => (
                 <th key={ch.number} style={{ textAlign: "center", width: 80 }}>
                   Ch {ch.number}
                 </th>
@@ -310,7 +329,7 @@ const TournamentLeaderboard = ({ participantId }) => {
                   return (
                     <tr key={`ellipsis-${idx}`}>
                       <td
-                        colSpan={8}
+                        colSpan={tournamentConfig.challenges.length + 6}
                         style={{ textAlign: "center", padding: "8px" }}
                       >
                         <Text size="sm" c="dimmed">
@@ -363,18 +382,15 @@ const TournamentLeaderboard = ({ participantId }) => {
                           : "—"}
                       </Text>
                     </td>
-                    {TOURNAMENT_CONFIG.challenges.map((ch) => (
+                    {tournamentConfig.challenges.map((ch) => (
                       <td key={ch.number} style={{ textAlign: "center" }}>
                         <Text
                           size="xs"
                           c={
-                            entry.challengeScores[ch.number]
-                              ? undefined
-                              : "dimmed"
+                            entry.challengeScores[ch.id] ? undefined : "dimmed"
                           }
                         >
-                          {entry.challengeScores[ch.number]?.wis?.toFixed(1) ||
-                            "—"}
+                          {entry.challengeScores[ch.id]?.wis?.toFixed(1) || "—"}
                         </Text>
                       </td>
                     ))}
@@ -446,12 +462,14 @@ const TournamentLeaderboard = ({ participantId }) => {
                       <Badge
                         size="xs"
                         color={
-                          entry.completed === TOURNAMENT_CONFIG.numChallenges
+                          entry.activeCompletedChallenges ===
+                          tournamentConfig.numChallenges
                             ? "green"
                             : "gray"
                         }
                       >
-                        {entry.completed}/{TOURNAMENT_CONFIG.numChallenges}
+                        {entry.activeCompletedChallenges}/
+                        {tournamentConfig.numChallenges}
                       </Badge>
                     </td>
                   </tr>

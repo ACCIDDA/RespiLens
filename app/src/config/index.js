@@ -25,6 +25,10 @@ import { FORECASTLE_CONFIG } from "./forecastle";
 // Tournament settings
 import {
   TOURNAMENT_CONFIG,
+  TOURNAMENT_REGISTRY,
+  ENABLED_TOURNAMENTS,
+  getTournamentById,
+  getTournamentByPath,
   getChallengeById,
   getChallengeByNumber,
   areAllChallengesCompleted,
@@ -39,6 +43,10 @@ export { APP_CONFIG };
 export { FORECASTLE_CONFIG };
 export {
   TOURNAMENT_CONFIG,
+  TOURNAMENT_REGISTRY,
+  ENABLED_TOURNAMENTS,
+  getTournamentById,
+  getTournamentByPath,
   getChallengeById,
   getChallengeByNumber,
   areAllChallengesCompleted,

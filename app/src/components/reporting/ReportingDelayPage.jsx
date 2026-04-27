@@ -46,6 +46,7 @@ import { Chart } from "react-chartjs-2";
 import Plot from "react-plotly.js";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import Seo from "../Seo";
 
 ChartJS.register(
   CategoryScale,
@@ -649,600 +650,612 @@ const ReportingDelayPage = () => {
   };
 
   return (
-    <Container size="xl" py="xl">
-      <Stack gap="xl">
-        <Stack gap="xs">
-          <Badge
-            variant="light"
-            leftSection={<IconClock size={14} />}
-            w="fit-content"
-          >
-            Reporting triangle explorer
-          </Badge>
-          <Title order={1}>
-            Do you need to nowcast? What is your reporting delay distribution?
-          </Title>
-          <Text c="dimmed" size="lg">
-            Analyze your reporting delay distribution with RespiLens and
-            epinowcast. Everything runs locally in your browser.
-          </Text>
-        </Stack>
-
-        <Card withBorder radius="md" padding="lg">
-          <Stack gap="sm">
-            <Title order={3}>Introduction</Title>
-            <Text c="dimmed">
-              Do you need nowcasting ? What does your reporting delay
-              distrubution look like ? Let's dive into that using this little
-              app. Nothing leave your computer (say how to check). So upload a
-              data with some columns indicating the refrence date of an event,
-              the report date when it was reported, and the value reported.
-              Optionally you can have other columns like location, age group, or
-              target type to filter the data. You'll see your reporting
-              distrubtion and the so called reporting triangle introduced by
-              (probably Kaitlyn Johnson et al. but really i need to check this).
-              This For any deeper dive open the link below to epinowcast on
-              which this work is based.
+    <>
+      <Seo
+        title="RespiLens | Reporting Delay Explorer"
+        description="Upload reporting data to explore delay distributions, build reporting triangles, and assess nowcasting needs in RespiLens."
+        canonicalPath="/reporting-triangle"
+      />
+      <Container size="xl" py="xl">
+        <Stack gap="xl">
+          <Stack gap="xs">
+            <Badge
+              variant="light"
+              leftSection={<IconClock size={14} />}
+              w="fit-content"
+            >
+              Reporting triangle explorer
+            </Badge>
+            <Title order={1}>
+              Do you need to nowcast? What is your reporting delay distribution?
+            </Title>
+            <Text c="dimmed" size="lg">
+              Analyze your reporting delay distribution with RespiLens and
+              epinowcast. Everything runs locally in your browser.
             </Text>
-            <Group gap="xs">
-              <Anchor
-                href="https://package.epinowcast.org"
-                target="_blank"
-                rel="noreferrer"
-                size="sm"
-              >
-                EpiNowcast
-              </Anchor>
-              <Anchor
-                href="https://baselinenowcast.epinowcast.org"
-                target="_blank"
-                rel="noreferrer"
-                size="sm"
-              >
-                Baselinenowcast
-              </Anchor>
-            </Group>
-            <Button size="sm" w="fit-content" onClick={startTour}>
-              Start guided tour
-            </Button>
           </Stack>
-        </Card>
 
-        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-          <Paper
-            withBorder
-            radius="md"
-            p="lg"
-            id="reporting-triangle-upload"
-            onDragOver={(event) => {
-              event.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(event) => {
-              event.preventDefault();
-              setIsDragging(false);
-              handleFile(event.dataTransfer.files?.[0]);
-            }}
-            style={{
-              borderStyle: "dashed",
-              borderColor: isDragging
-                ? "var(--mantine-color-blue-6)"
-                : undefined,
-              background: isDragging
-                ? "var(--mantine-color-blue-0)"
-                : undefined,
-            }}
-          >
-            <Stack align="center" gap="sm">
-              <ThemeIcon size={52} radius="xl" variant="light">
-                <IconFileUpload size={28} />
-              </ThemeIcon>
-              <Text fw={600}>Drag & drop a CSV file here</Text>
-              <Text size="sm" c="dimmed" ta="center">
-                Expected columns: <code>reference_date</code>,{" "}
-                <code>report_date</code>, <code>value</code>.
-              </Text>
-              <Text size="sm" c="dimmed" ta="center">
-                Each row should be a cumulative total for one reference date as
-                reported on a later report date.
-              </Text>
-              <Text size="sm" c="dimmed" ta="center">
-                Optional columns like location, age, or target are supported and
-                can be filtered after upload.
-              </Text>
-              <Group>
-                <Button onClick={() => inputRef.current?.click()}>
-                  Choose file
-                </Button>
-                <Button
-                  component="a"
-                  href={sampleDataUri}
-                  download="sample-epinowcast.csv"
-                  variant="subtle"
-                  leftSection={<IconDownload size={16} />}
-                >
-                  Download sample
-                </Button>
-              </Group>
-              <Text size="sm" c="dimmed">
-                Current dataset: <strong>{fileName}</strong>
-              </Text>
-              {error && (
-                <Text size="sm" c="red">
-                  {error} Showing the last valid dataset.
-                </Text>
-              )}
-              {!mappingComplete && (
-                <Text size="sm" c="orange">
-                  Please map the required columns to continue.
-                </Text>
-              )}
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".csv,text/csv"
-                hidden
-                onChange={(event) => handleFile(event.target.files?.[0])}
-              />
-            </Stack>
-          </Paper>
-
-          <Card
-            withBorder
-            radius="md"
-            padding="lg"
-            id="reporting-triangle-mapping"
-          >
+          <Card withBorder radius="md" padding="lg">
             <Stack gap="sm">
-              <Group justify="space-between">
-                <Title order={3}>Column mapping</Title>
-                <Badge variant="outline">
-                  {csvHeaders.length} columns detected
-                </Badge>
-              </Group>
-              <Text size="sm" c="dimmed">
-                Map your CSV columns to the required fields. Each upload resets
-                the mapping.
+              <Title order={3}>Introduction</Title>
+              <Text c="dimmed">
+                Do you need nowcasting ? What does your reporting delay
+                distrubution look like ? Let's dive into that using this little
+                app. Nothing leave your computer (say how to check). So upload a
+                data with some columns indicating the refrence date of an event,
+                the report date when it was reported, and the value reported.
+                Optionally you can have other columns like location, age group,
+                or target type to filter the data. You'll see your reporting
+                distrubtion and the so called reporting triangle introduced by
+                (probably Kaitlyn Johnson et al. but really i need to check
+                this). This For any deeper dive open the link below to
+                epinowcast on which this work is based.
               </Text>
-              <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-                <Select
-                  label="Reference date (rows)"
-                  placeholder="Choose column"
-                  data={headerOptions}
-                  value={columnMapping.referenceDate}
-                  onChange={(value) => {
-                    setColumnMapping((prev) => ({
-                      ...prev,
-                      referenceDate: value ?? "",
-                    }));
-                    setAnalysisStarted(false);
-                  }}
+              <Group gap="xs">
+                <Anchor
+                  href="https://package.epinowcast.org"
+                  target="_blank"
+                  rel="noreferrer"
                   size="sm"
-                />
-                <Select
-                  label="Report date (columns)"
-                  placeholder="Choose column"
-                  data={headerOptions}
-                  value={columnMapping.reportDate}
-                  onChange={(value) => {
-                    setColumnMapping((prev) => ({
-                      ...prev,
-                      reportDate: value ?? "",
-                    }));
-                    setAnalysisStarted(false);
-                  }}
+                >
+                  EpiNowcast
+                </Anchor>
+                <Anchor
+                  href="https://baselinenowcast.epinowcast.org"
+                  target="_blank"
+                  rel="noreferrer"
                   size="sm"
-                />
-                <Select
-                  label="Value"
-                  placeholder="Choose column"
-                  data={headerOptions}
-                  value={columnMapping.value}
-                  onChange={(value) => {
-                    setColumnMapping((prev) => ({
-                      ...prev,
-                      value: value ?? "",
-                    }));
-                    setAnalysisStarted(false);
-                  }}
-                  size="sm"
-                />
-              </SimpleGrid>
-              {showFilters && (
-                <>
-                  <Divider />
-                  <Stack gap="xs">
-                    <Group justify="space-between">
-                      <Text fw={600}>Filter optional columns</Text>
-                      <Badge variant="outline">Applied on start</Badge>
-                    </Group>
-                    <Text size="sm" c="dimmed">
-                      Narrow by location, age, target, or other metadata before
-                      starting the analysis.
-                    </Text>
-                    <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-                      {extraColumnOptions.map(({ column, options }) => (
-                        <Select
-                          key={column}
-                          label={column}
-                          placeholder="All values"
-                          data={options}
-                          value={columnFilters[column] ?? null}
-                          onChange={(value) => {
-                            setColumnFilters((prev) => ({
-                              ...prev,
-                              [column]: value,
-                            }));
-                            setAnalysisStarted(false);
-                          }}
-                          clearable
-                          searchable
-                          size="sm"
-                        />
-                      ))}
-                    </SimpleGrid>
-                  </Stack>
-                </>
-              )}
-              {!mappingComplete && (
-                <Text size="sm" c="orange">
-                  Please map reference date, report date, and value to continue.
-                </Text>
-              )}
-              <Button
-                size="sm"
-                disabled={!canAnalyze}
-                onClick={() => {
-                  setAnalysisStarted(true);
-                  setReferenceRange(
-                    getDefaultReferenceRange(allReferenceDates),
-                  );
-                  setMaxLagUnits(Math.max(0, Math.ceil(maxLagDays / unitDays)));
-                }}
-              >
-                Start analysis
+                >
+                  Baselinenowcast
+                </Anchor>
+              </Group>
+              <Button size="sm" w="fit-content" onClick={startTour}>
+                Start guided tour
               </Button>
             </Stack>
           </Card>
-        </SimpleGrid>
 
-        {analysisStarted && (
-          <>
-            <Card withBorder radius="md" padding="lg">
+          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+            <Paper
+              withBorder
+              radius="md"
+              p="lg"
+              id="reporting-triangle-upload"
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragging(false);
+                handleFile(event.dataTransfer.files?.[0]);
+              }}
+              style={{
+                borderStyle: "dashed",
+                borderColor: isDragging
+                  ? "var(--mantine-color-blue-6)"
+                  : undefined,
+                background: isDragging
+                  ? "var(--mantine-color-blue-0)"
+                  : undefined,
+              }}
+            >
+              <Stack align="center" gap="sm">
+                <ThemeIcon size={52} radius="xl" variant="light">
+                  <IconFileUpload size={28} />
+                </ThemeIcon>
+                <Text fw={600}>Drag & drop a CSV file here</Text>
+                <Text size="sm" c="dimmed" ta="center">
+                  Expected columns: <code>reference_date</code>,{" "}
+                  <code>report_date</code>, <code>value</code>.
+                </Text>
+                <Text size="sm" c="dimmed" ta="center">
+                  Each row should be a cumulative total for one reference date
+                  as reported on a later report date.
+                </Text>
+                <Text size="sm" c="dimmed" ta="center">
+                  Optional columns like location, age, or target are supported
+                  and can be filtered after upload.
+                </Text>
+                <Group>
+                  <Button onClick={() => inputRef.current?.click()}>
+                    Choose file
+                  </Button>
+                  <Button
+                    component="a"
+                    href={sampleDataUri}
+                    download="sample-epinowcast.csv"
+                    variant="subtle"
+                    leftSection={<IconDownload size={16} />}
+                  >
+                    Download sample
+                  </Button>
+                </Group>
+                <Text size="sm" c="dimmed">
+                  Current dataset: <strong>{fileName}</strong>
+                </Text>
+                {error && (
+                  <Text size="sm" c="red">
+                    {error} Showing the last valid dataset.
+                  </Text>
+                )}
+                {!mappingComplete && (
+                  <Text size="sm" c="orange">
+                    Please map the required columns to continue.
+                  </Text>
+                )}
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  hidden
+                  onChange={(event) => handleFile(event.target.files?.[0])}
+                />
+              </Stack>
+            </Paper>
+
+            <Card
+              withBorder
+              radius="md"
+              padding="lg"
+              id="reporting-triangle-mapping"
+            >
               <Stack gap="sm">
                 <Group justify="space-between">
-                  <Title order={3}>Window & cutoff</Title>
+                  <Title order={3}>Column mapping</Title>
                   <Badge variant="outline">
-                    {triangle.referenceDates.length} reference dates
+                    {csvHeaders.length} columns detected
                   </Badge>
                 </Group>
                 <Text size="sm" c="dimmed">
-                  Use the slider to focus on a subset of reference dates (rows),
-                  and set how far after reference dates to include reports
-                  (columns).
+                  Map your CSV columns to the required fields. Each upload
+                  resets the mapping.
                 </Text>
-                <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-                  <Stack gap="xs">
-                    <Text size="sm" fw={500}>
-                      Reference-date window
-                    </Text>
-                    <RangeSlider
-                      value={referenceRange}
-                      onChange={setReferenceRange}
-                      min={0}
-                      max={Math.max(0, allReferenceDates.length - 1)}
-                      step={1}
-                      marks={sliderMarks}
-                      label={(value) =>
-                        formatDateLabel(allReferenceDates[value])
-                      }
-                    />
-                    <Text size="xs" c="dimmed">
-                      Showing {activeRangeLabel}
-                    </Text>
-                  </Stack>
-                  <Stack gap={4}>
-                    <NumberInput
-                      label={`Report cutoff (${unit}s after reference)`}
-                      value={maxLagUnits}
-                      onChange={(value) => setMaxLagUnits(Number(value) || 0)}
-                      min={0}
-                      max={Math.max(0, Math.ceil(maxLagDays / unitDays))}
-                      clampBehavior="strict"
-                      size="sm"
-                    />
-                    <Text size="xs" c="dimmed">
-                      Latest observed delay: {maxLagDays} days (~
-                      {Math.ceil(maxLagDays / unitDays)} {unit}s)
-                    </Text>
-                  </Stack>
+                <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+                  <Select
+                    label="Reference date (rows)"
+                    placeholder="Choose column"
+                    data={headerOptions}
+                    value={columnMapping.referenceDate}
+                    onChange={(value) => {
+                      setColumnMapping((prev) => ({
+                        ...prev,
+                        referenceDate: value ?? "",
+                      }));
+                      setAnalysisStarted(false);
+                    }}
+                    size="sm"
+                  />
+                  <Select
+                    label="Report date (columns)"
+                    placeholder="Choose column"
+                    data={headerOptions}
+                    value={columnMapping.reportDate}
+                    onChange={(value) => {
+                      setColumnMapping((prev) => ({
+                        ...prev,
+                        reportDate: value ?? "",
+                      }));
+                      setAnalysisStarted(false);
+                    }}
+                    size="sm"
+                  />
+                  <Select
+                    label="Value"
+                    placeholder="Choose column"
+                    data={headerOptions}
+                    value={columnMapping.value}
+                    onChange={(value) => {
+                      setColumnMapping((prev) => ({
+                        ...prev,
+                        value: value ?? "",
+                      }));
+                      setAnalysisStarted(false);
+                    }}
+                    size="sm"
+                  />
                 </SimpleGrid>
+                {showFilters && (
+                  <>
+                    <Divider />
+                    <Stack gap="xs">
+                      <Group justify="space-between">
+                        <Text fw={600}>Filter optional columns</Text>
+                        <Badge variant="outline">Applied on start</Badge>
+                      </Group>
+                      <Text size="sm" c="dimmed">
+                        Narrow by location, age, target, or other metadata
+                        before starting the analysis.
+                      </Text>
+                      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                        {extraColumnOptions.map(({ column, options }) => (
+                          <Select
+                            key={column}
+                            label={column}
+                            placeholder="All values"
+                            data={options}
+                            value={columnFilters[column] ?? null}
+                            onChange={(value) => {
+                              setColumnFilters((prev) => ({
+                                ...prev,
+                                [column]: value,
+                              }));
+                              setAnalysisStarted(false);
+                            }}
+                            clearable
+                            searchable
+                            size="sm"
+                          />
+                        ))}
+                      </SimpleGrid>
+                    </Stack>
+                  </>
+                )}
+                {!mappingComplete && (
+                  <Text size="sm" c="orange">
+                    Please map reference date, report date, and value to
+                    continue.
+                  </Text>
+                )}
+                <Button
+                  size="sm"
+                  disabled={!canAnalyze}
+                  onClick={() => {
+                    setAnalysisStarted(true);
+                    setReferenceRange(
+                      getDefaultReferenceRange(allReferenceDates),
+                    );
+                    setMaxLagUnits(
+                      Math.max(0, Math.ceil(maxLagDays / unitDays)),
+                    );
+                  }}
+                >
+                  Start analysis
+                </Button>
               </Stack>
             </Card>
+          </SimpleGrid>
 
-            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-              <Card
-                withBorder
-                radius="md"
-                padding="lg"
-                id="reporting-triangle-trajectory"
-              >
+          {analysisStarted && (
+            <>
+              <Card withBorder radius="md" padding="lg">
                 <Stack gap="sm">
                   <Group justify="space-between">
-                    <Title order={3}>Revision trajectories</Title>
-                    <Badge variant="outline">first 3 reference dates</Badge>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    View how reported totals evolve over successive reports.
-                  </Text>
-                  <Chart
-                    type="line"
-                    data={revisionChartData}
-                    options={chartOptions}
-                  />
-                </Stack>
-              </Card>
-
-              <Card
-                withBorder
-                radius="md"
-                padding="lg"
-                id="reporting-triangle-distribution"
-              >
-                <Stack gap="sm">
-                  <Group justify="space-between">
-                    <Title order={3}>Delay distribution</Title>
-                    <Badge variant="outline">
-                      {summary.total} total reports
-                    </Badge>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    How long it takes for reports to arrive after the reference
-                    date.
-                  </Text>
-                  <Chart
-                    type="bar"
-                    data={delayChartData}
-                    options={chartOptions}
-                  />
-                </Stack>
-              </Card>
-            </SimpleGrid>
-
-            <Card withBorder radius="md" padding="lg">
-              <Stack gap="sm">
-                <Group justify="space-between">
-                  <Title order={3}>Reporting triangle</Title>
-                  <Group gap="xs">
+                    <Title order={3}>Window & cutoff</Title>
                     <Badge variant="outline">
                       {triangle.referenceDates.length} reference dates
                     </Badge>
-                    <ActionIcon
-                      variant="light"
-                      aria-label={
-                        isTriangleFullscreen
-                          ? "Exit full screen"
-                          : "Expand to full screen"
-                      }
-                      onClick={() => setIsTriangleFullscreen((prev) => !prev)}
-                    >
-                      {isTriangleFullscreen ? (
-                        <IconArrowsMinimize size={16} />
-                      ) : (
-                        <IconArrowsMaximize size={16} />
-                      )}
-                    </ActionIcon>
                   </Group>
-                </Group>
-                <Group justify="space-between" align="flex-start">
-                  <Stack gap={2}>
-                    <Text size="sm" c="dimmed">
-                      Rows = <strong>reference date</strong>, columns ={" "}
-                      <strong>report date</strong>.
-                    </Text>
-                    <Text size="sm" c="dimmed">
-                      Diagonal cells (delay = 0) represent reports received on
-                      the same day as the reference date.
-                    </Text>
-                  </Stack>
-                  <Switch
-                    label="Display as heatmap (best for large tables)"
-                    checked={showHeatmap}
-                    onChange={(event) =>
-                      setShowHeatmap(event.currentTarget.checked)
-                    }
-                    size="sm"
-                  />
-                </Group>
-                <Text size="sm" c="dimmed">
-                  Darker cells are larger cumulative counts.
-                  {isTriangleTruncated &&
-                    " Showing a recent subset to keep the table responsive."}
-                </Text>
-                {showHeatmap ? (
-                  <Plot
-                    data={heatmapData}
-                    layout={heatmapLayout}
-                    config={{ displayModeBar: false }}
-                    style={{ width: "100%" }}
-                  />
-                ) : (
-                  <ScrollArea>
-                    <Table withTableBorder striped highlightOnHover>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th id="reporting-triangle-axis-cell">
-                            Reference date
-                          </Table.Th>
-                          {displayReportDates.map((date) => (
-                            <Table.Th key={date} ta="center">
-                              {formatDateLabel(date)}
-                            </Table.Th>
-                          ))}
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>{triangleRows}</Table.Tbody>
-                    </Table>
-                  </ScrollArea>
-                )}
-              </Stack>
-            </Card>
-
-            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-              <Card withBorder radius="md" padding="lg">
-                <Stack gap="sm">
-                  <Title order={3}>Nota Bene</Title>
-                  <List spacing="xs" size="sm">
-                    <List.Item>
-                      Late reports can be structurally different (e.g., lab
-                      corrections, backfills).
-                    </List.Item>
-                    <List.Item>
-                      Holiday effects and reporting interruptions bias delay
-                      estimates.
-                    </List.Item>
-                    <List.Item>
-                      Changes in case definitions or data pipelines break
-                      comparability over time.
-                    </List.Item>
-                  </List>
+                  <Text size="sm" c="dimmed">
+                    Use the slider to focus on a subset of reference dates
+                    (rows), and set how far after reference dates to include
+                    reports (columns).
+                  </Text>
+                  <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                    <Stack gap="xs">
+                      <Text size="sm" fw={500}>
+                        Reference-date window
+                      </Text>
+                      <RangeSlider
+                        value={referenceRange}
+                        onChange={setReferenceRange}
+                        min={0}
+                        max={Math.max(0, allReferenceDates.length - 1)}
+                        step={1}
+                        marks={sliderMarks}
+                        label={(value) =>
+                          formatDateLabel(allReferenceDates[value])
+                        }
+                      />
+                      <Text size="xs" c="dimmed">
+                        Showing {activeRangeLabel}
+                      </Text>
+                    </Stack>
+                    <Stack gap={4}>
+                      <NumberInput
+                        label={`Report cutoff (${unit}s after reference)`}
+                        value={maxLagUnits}
+                        onChange={(value) => setMaxLagUnits(Number(value) || 0)}
+                        min={0}
+                        max={Math.max(0, Math.ceil(maxLagDays / unitDays))}
+                        clampBehavior="strict"
+                        size="sm"
+                      />
+                      <Text size="xs" c="dimmed">
+                        Latest observed delay: {maxLagDays} days (~
+                        {Math.ceil(maxLagDays / unitDays)} {unit}s)
+                      </Text>
+                    </Stack>
+                  </SimpleGrid>
                 </Stack>
               </Card>
 
+              <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+                <Card
+                  withBorder
+                  radius="md"
+                  padding="lg"
+                  id="reporting-triangle-trajectory"
+                >
+                  <Stack gap="sm">
+                    <Group justify="space-between">
+                      <Title order={3}>Revision trajectories</Title>
+                      <Badge variant="outline">first 3 reference dates</Badge>
+                    </Group>
+                    <Text size="sm" c="dimmed">
+                      View how reported totals evolve over successive reports.
+                    </Text>
+                    <Chart
+                      type="line"
+                      data={revisionChartData}
+                      options={chartOptions}
+                    />
+                  </Stack>
+                </Card>
+
+                <Card
+                  withBorder
+                  radius="md"
+                  padding="lg"
+                  id="reporting-triangle-distribution"
+                >
+                  <Stack gap="sm">
+                    <Group justify="space-between">
+                      <Title order={3}>Delay distribution</Title>
+                      <Badge variant="outline">
+                        {summary.total} total reports
+                      </Badge>
+                    </Group>
+                    <Text size="sm" c="dimmed">
+                      How long it takes for reports to arrive after the
+                      reference date.
+                    </Text>
+                    <Chart
+                      type="bar"
+                      data={delayChartData}
+                      options={chartOptions}
+                    />
+                  </Stack>
+                </Card>
+              </SimpleGrid>
+
               <Card withBorder radius="md" padding="lg">
-                <Stack gap="md">
-                  <Title order={3}>Summary</Title>
-                  <Paper withBorder radius="md" p="md">
-                    <Stack gap={4}>
-                      <Text fw={600}>Based on this dataset:</Text>
-                      <Text>
-                        The reported quantity is{" "}
-                        <strong>
-                          95% complete after {summary.delay95} days
-                        </strong>
-                        , with a
-                        <strong>
-                          {" "}
-                          median delay of {summary.medianDelay} days
-                        </strong>
-                        .
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Title order={3}>Reporting triangle</Title>
+                    <Group gap="xs">
+                      <Badge variant="outline">
+                        {triangle.referenceDates.length} reference dates
+                      </Badge>
+                      <ActionIcon
+                        variant="light"
+                        aria-label={
+                          isTriangleFullscreen
+                            ? "Exit full screen"
+                            : "Expand to full screen"
+                        }
+                        onClick={() => setIsTriangleFullscreen((prev) => !prev)}
+                      >
+                        {isTriangleFullscreen ? (
+                          <IconArrowsMinimize size={16} />
+                        ) : (
+                          <IconArrowsMaximize size={16} />
+                        )}
+                      </ActionIcon>
+                    </Group>
+                  </Group>
+                  <Group justify="space-between" align="flex-start">
+                    <Stack gap={2}>
+                      <Text size="sm" c="dimmed">
+                        Rows = <strong>reference date</strong>, columns ={" "}
+                        <strong>report date</strong>.
                       </Text>
-                      <Text c="dimmed" size="sm">
-                        {recommendation}
+                      <Text size="sm" c="dimmed">
+                        Diagonal cells (delay = 0) represent reports received on
+                        the same day as the reference date.
                       </Text>
                     </Stack>
-                  </Paper>
-
-                  <Divider />
-
-                  <Stack gap="xs">
-                    <Text fw={600}>Decision tree for nowcasting</Text>
-                    <List
-                      spacing="xs"
-                      size="sm"
-                      icon={
-                        <ThemeIcon size={20} radius="xl" variant="light">
-                          <IconArrowRight size={14} />
-                        </ThemeIcon>
+                    <Switch
+                      label="Display as heatmap (best for large tables)"
+                      checked={showHeatmap}
+                      onChange={(event) =>
+                        setShowHeatmap(event.currentTarget.checked)
                       }
-                    >
-                      <List.Item>Simple: use baselinenowcast</List.Item>
+                      size="sm"
+                    />
+                  </Group>
+                  <Text size="sm" c="dimmed">
+                    Darker cells are larger cumulative counts.
+                    {isTriangleTruncated &&
+                      " Showing a recent subset to keep the table responsive."}
+                  </Text>
+                  {showHeatmap ? (
+                    <Plot
+                      data={heatmapData}
+                      layout={heatmapLayout}
+                      config={{ displayModeBar: false }}
+                      style={{ width: "100%" }}
+                    />
+                  ) : (
+                    <ScrollArea>
+                      <Table withTableBorder striped highlightOnHover>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th id="reporting-triangle-axis-cell">
+                              Reference date
+                            </Table.Th>
+                            {displayReportDates.map((date) => (
+                              <Table.Th key={date} ta="center">
+                                {formatDateLabel(date)}
+                              </Table.Th>
+                            ))}
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>{triangleRows}</Table.Tbody>
+                      </Table>
+                    </ScrollArea>
+                  )}
+                </Stack>
+              </Card>
+
+              <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+                <Card withBorder radius="md" padding="lg">
+                  <Stack gap="sm">
+                    <Title order={3}>Nota Bene</Title>
+                    <List spacing="xs" size="sm">
                       <List.Item>
-                        Better but more complex: use epinowcast (tood link)
+                        Late reports can be structurally different (e.g., lab
+                        corrections, backfills).
                       </List.Item>
-                      <List.Item>(both use the same data format)</List.Item>
                       <List.Item>
-                        For more information about nowcasting (epinowcast, the
-                        forum)
+                        Holiday effects and reporting interruptions bias delay
+                        estimates.
+                      </List.Item>
+                      <List.Item>
+                        Changes in case definitions or data pipelines break
+                        comparability over time.
                       </List.Item>
                     </List>
                   </Stack>
+                </Card>
+
+                <Card withBorder radius="md" padding="lg">
+                  <Stack gap="md">
+                    <Title order={3}>Summary</Title>
+                    <Paper withBorder radius="md" p="md">
+                      <Stack gap={4}>
+                        <Text fw={600}>Based on this dataset:</Text>
+                        <Text>
+                          The reported quantity is{" "}
+                          <strong>
+                            95% complete after {summary.delay95} days
+                          </strong>
+                          , with a
+                          <strong>
+                            {" "}
+                            median delay of {summary.medianDelay} days
+                          </strong>
+                          .
+                        </Text>
+                        <Text c="dimmed" size="sm">
+                          {recommendation}
+                        </Text>
+                      </Stack>
+                    </Paper>
+
+                    <Divider />
+
+                    <Stack gap="xs">
+                      <Text fw={600}>Decision tree for nowcasting</Text>
+                      <List
+                        spacing="xs"
+                        size="sm"
+                        icon={
+                          <ThemeIcon size={20} radius="xl" variant="light">
+                            <IconArrowRight size={14} />
+                          </ThemeIcon>
+                        }
+                      >
+                        <List.Item>Simple: use baselinenowcast</List.Item>
+                        <List.Item>
+                          Better but more complex: use epinowcast (tood link)
+                        </List.Item>
+                        <List.Item>(both use the same data format)</List.Item>
+                        <List.Item>
+                          For more information about nowcasting (epinowcast, the
+                          forum)
+                        </List.Item>
+                      </List>
+                    </Stack>
+                  </Stack>
+                </Card>
+              </SimpleGrid>
+
+              <Card withBorder radius="md" padding="lg">
+                <Stack gap="sm">
+                  <Title order={3}>Useful links</Title>
+                  <List spacing="xs" size="sm">
+                    <List.Item>
+                      <Anchor
+                        href="https://baselinenowcast.epinowcast.org"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Baseline nowcast toolkit
+                      </Anchor>
+                    </List.Item>
+                    <List.Item>
+                      <Anchor
+                        href="https://epinowcast.org"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        EpiNowcast documentation
+                      </Anchor>
+                    </List.Item>
+                  </List>
+                  <Box>
+                    <Text size="sm" c="dimmed">
+                      Want help operationalizing? Start with the baseline
+                      nowcast decision tree and upgrade to EpiNowcast when you
+                      need probabilistic delay distributions.
+                    </Text>
+                  </Box>
                 </Stack>
               </Card>
-            </SimpleGrid>
-
-            <Card withBorder radius="md" padding="lg">
-              <Stack gap="sm">
-                <Title order={3}>Useful links</Title>
-                <List spacing="xs" size="sm">
-                  <List.Item>
-                    <Anchor
-                      href="https://baselinenowcast.epinowcast.org"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Baseline nowcast toolkit
-                    </Anchor>
-                  </List.Item>
-                  <List.Item>
-                    <Anchor
-                      href="https://epinowcast.org"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      EpiNowcast documentation
-                    </Anchor>
-                  </List.Item>
-                </List>
-                <Box>
-                  <Text size="sm" c="dimmed">
-                    Want help operationalizing? Start with the baseline nowcast
-                    decision tree and upgrade to EpiNowcast when you need
-                    probabilistic delay distributions.
-                  </Text>
-                </Box>
-              </Stack>
-            </Card>
-          </>
-        )}
-      </Stack>
-      <Modal
-        opened={isTriangleFullscreen}
-        onClose={() => setIsTriangleFullscreen(false)}
-        fullScreen
-        title="Reporting triangle"
-        padding="md"
-      >
-        <Stack gap="sm">
-          <Group justify="space-between">
-            <Text size="sm" c="dimmed">
-              Showing {activeRangeLabel} · Cutoff {maxLagUnits} {unit}(s)
-            </Text>
-            <Switch
-              label="Display as heatmap"
-              checked={showHeatmap}
-              onChange={(event) => setShowHeatmap(event.currentTarget.checked)}
-              size="sm"
-            />
-          </Group>
-          {showHeatmap ? (
-            <Plot
-              data={heatmapData}
-              layout={heatmapLayout}
-              config={{ displayModeBar: false }}
-              style={{ width: "100%" }}
-            />
-          ) : (
-            <ScrollArea>
-              <Table withTableBorder striped highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Reference date</Table.Th>
-                    {displayReportDates.map((date) => (
-                      <Table.Th key={`modal-${date}`} ta="center">
-                        {formatDateLabel(date)}
-                      </Table.Th>
-                    ))}
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>{triangleRows}</Table.Tbody>
-              </Table>
-            </ScrollArea>
+            </>
           )}
         </Stack>
-      </Modal>
-    </Container>
+        <Modal
+          opened={isTriangleFullscreen}
+          onClose={() => setIsTriangleFullscreen(false)}
+          fullScreen
+          title="Reporting triangle"
+          padding="md"
+        >
+          <Stack gap="sm">
+            <Group justify="space-between">
+              <Text size="sm" c="dimmed">
+                Showing {activeRangeLabel} · Cutoff {maxLagUnits} {unit}(s)
+              </Text>
+              <Switch
+                label="Display as heatmap"
+                checked={showHeatmap}
+                onChange={(event) =>
+                  setShowHeatmap(event.currentTarget.checked)
+                }
+                size="sm"
+              />
+            </Group>
+            {showHeatmap ? (
+              <Plot
+                data={heatmapData}
+                layout={heatmapLayout}
+                config={{ displayModeBar: false }}
+                style={{ width: "100%" }}
+              />
+            ) : (
+              <ScrollArea>
+                <Table withTableBorder striped highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Reference date</Table.Th>
+                      {displayReportDates.map((date) => (
+                        <Table.Th key={`modal-${date}`} ta="center">
+                          {formatDateLabel(date)}
+                        </Table.Th>
+                      ))}
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>{triangleRows}</Table.Tbody>
+                </Table>
+              </ScrollArea>
+            )}
+          </Stack>
+        </Modal>
+      </Container>
+    </>
   );
 };
 

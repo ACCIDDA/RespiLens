@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import {
   Container,
   Paper,
@@ -26,6 +25,7 @@ import {
   IconCode,
 } from "@tabler/icons-react";
 import DataVisualizationContainer from "../DataVisualizationContainer";
+import Seo from "../Seo";
 
 // Plotly Gaussian Chart Component
 const PlotlyGaussianChart = () => {
@@ -512,6 +512,7 @@ The final view returns to the national perspective with our latest forecasts, sh
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
           <DataVisualizationContainer
             location={currentVisualization.location}
+            disableSeo
             // Additional props would be passed here to control the view
           />
         </div>
@@ -536,9 +537,20 @@ The final view returns to the national perspective with our latest forecasts, sh
 
   return (
     <>
-      <Helmet>
-        <title>RespiLens | Narrative Viewer</title>
-      </Helmet>
+      <Seo
+        title={
+          metadata.title
+            ? `RespiLens | ${metadata.title}`
+            : "RespiLens | Narrative Viewer"
+        }
+        description={
+          metadata.abstract ||
+          metadata.description ||
+          "Read an interactive RespiLens narrative with embedded respiratory disease data visualizations."
+        }
+        canonicalPath={`/narratives/${id || "flu-winter-2024-25-slides"}`}
+        type="article"
+      />
       <div
         style={{ height: "100vh", display: "flex", flexDirection: "column" }}
       >

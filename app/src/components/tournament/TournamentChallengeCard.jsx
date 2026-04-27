@@ -22,6 +22,7 @@ import {
 } from "@tabler/icons-react";
 import { useForecastData } from "../../hooks/useForecastData";
 import { submitForecast, getParticipant } from "../../utils/tournamentAPI";
+import { TOURNAMENT_CONFIG } from "../../config";
 import {
   initialiseForecastInputs,
   convertToIntervals,
@@ -40,6 +41,7 @@ const addWeeksToDate = (dateString, weeks) => {
 };
 
 const TournamentChallengeCard = ({
+  tournamentConfig = TOURNAMENT_CONFIG,
   challenge,
   participantId,
   isCompleted,
@@ -115,9 +117,14 @@ const TournamentChallengeCard = ({
     const loadExistingSubmission = async () => {
       if (isCompleted && participantId) {
         try {
-          const participantData = await getParticipant(participantId);
+          const participantData = await getParticipant(
+            participantId,
+            tournamentConfig,
+          );
           const submission = participantData.submissions.find(
-            (sub) => sub.challengeNum === challenge.number,
+            (sub) =>
+              sub.challengeId === challenge.id ||
+              Number(sub.challengeNum) === Number(challenge.number),
           );
           if (submission && submission.forecasts) {
             setExistingSubmission(submission);
@@ -141,7 +148,13 @@ const TournamentChallengeCard = ({
     };
 
     loadExistingSubmission();
-  }, [isCompleted, participantId, challenge.number]);
+  }, [
+    isCompleted,
+    participantId,
+    challenge.id,
+    challenge.number,
+    tournamentConfig,
+  ]);
 
   // Use the challenge's forecast date (historical date)
   const forecastDate = challenge.forecastDate;
@@ -264,7 +277,12 @@ const TournamentChallengeCard = ({
 
     try {
       // Submit forecasts for all horizons (scoring will be done on frontend)
-      await submitForecast(participantId, challenge.number, forecastEntries);
+      await submitForecast(
+        participantId,
+        challenge.number,
+        forecastEntries,
+        tournamentConfig,
+      );
 
       setModalOpened(false);
       setInputMode("median");

@@ -51,7 +51,17 @@ const addWeeksToDate = (dateString, weeks) => {
   return base.toISOString().slice(0, 10);
 };
 
-const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
+const getSubmissionForecasts = (submissions, challenge) => {
+  if (!submissions) return null;
+  return submissions[challenge.id] || submissions[challenge.number] || null;
+};
+
+const TournamentGame = ({
+  tournamentConfig = TOURNAMENT_CONFIG,
+  participantId,
+  participantName,
+  onAllCompleted,
+}) => {
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
   const [completedChallenges, setCompletedChallenges] = useState(new Set());
   const [submissionErrors, setSubmissionErrors] = useState({});
@@ -66,9 +76,21 @@ const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
   const [scenarioData, setScenarioData] = useState({});
   const [loading, setLoading] = useState(true);
 
-  const challenge = TOURNAMENT_CONFIG.challenges[currentChallengeIndex];
+  const challenge = tournamentConfig.challenges[currentChallengeIndex];
   const allChallengesCompleted =
-    completedChallenges.size === TOURNAMENT_CONFIG.numChallenges;
+    tournamentConfig.numChallenges > 0 &&
+    tournamentConfig.challenges.every((ch) => completedChallenges.has(ch.id));
+  const enabledChallengeIds = useMemo(
+    () => new Set(tournamentConfig.challenges.map((ch) => ch.id)),
+    [tournamentConfig],
+  );
+  const challengeIdByNumber = useMemo(
+    () =>
+      new Map(
+        tournamentConfig.challenges.map((ch) => [Number(ch.number), ch.id]),
+      ),
+    [tournamentConfig],
+  );
 
   // Load all challenge data and ground truth
   useEffect(() => {
@@ -76,7 +98,7 @@ const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
       const gtData = {};
       const scData = {};
 
-      for (const ch of TOURNAMENT_CONFIG.challenges) {
+      for (const ch of tournamentConfig.challenges) {
         try {
           const filePath = `/processed_data/${ch.dataPath}/${ch.location}_${ch.fileSuffix}`;
           const response = await fetch(filePath);
@@ -120,7 +142,7 @@ const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
     };
 
     loadChallengeData();
-  }, []);
+  }, [tournamentConfig]);
 
   // Load completed challenges for this participant
   useEffect(() => {
@@ -128,12 +150,19 @@ const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
       if (!participantId) return;
 
       try {
-        const data = await getParticipant(participantId);
+        const data = await getParticipant(participantId, tournamentConfig);
         const completed = new Set();
 
         data.submissions.forEach((sub) => {
-          if (sub.forecasts && sub.forecasts.length > 0) {
-            completed.add(sub.challengeNum - 1); // Convert to 0-indexed
+          const challengeId =
+            sub.challengeId ||
+            challengeIdByNumber.get(Number(sub.challengeNum));
+          if (
+            sub.forecasts &&
+            sub.forecasts.length > 0 &&
+            enabledChallengeIds.has(challengeId)
+          ) {
+            completed.add(challengeId);
           }
         });
 
@@ -144,7 +173,12 @@ const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
     };
 
     loadCompletedChallenges();
-  }, [participantId]);
+  }, [
+    participantId,
+    enabledChallengeIds,
+    challengeIdByNumber,
+    tournamentConfig,
+  ]);
 
   const latestObservationValue = useMemo(() => {
     if (!challenge || !scenarioData[challenge.number]) return 1000;
@@ -312,7 +346,12 @@ const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
 
     try {
       // Submit to backend
-      await submitForecast(participantId, challenge.number, forecastEntries);
+      await submitForecast(
+        participantId,
+        challenge.number,
+        forecastEntries,
+        tournamentConfig,
+      );
 
       // Calculate scores
       const gtData = groundTruthData[challenge.number];
@@ -338,13 +377,11 @@ const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
       });
 
       // Load leaderboard to compare with other participants
-      const leaderboard = await getLeaderboard();
+      const leaderboard = await getLeaderboard(tournamentConfig);
       setLeaderboardData(leaderboard);
 
       // Mark as completed
-      setCompletedChallenges(
-        (prev) => new Set([...prev, currentChallengeIndex]),
-      );
+      setCompletedChallenges((prev) => new Set([...prev, challenge.id]));
 
       // Move to scoring view
       setInputMode("scoring");
@@ -395,31 +432,31 @@ const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
         <Paper shadow="sm" p="md" withBorder>
           <Group position="apart">
             <div>
-              <Title order={2}>{TOURNAMENT_CONFIG.name}</Title>
+              <Title order={2}>{tournamentConfig.name}</Title>
               <Text size="sm" c="dimmed">
                 {participantName}
               </Text>
             </div>
             <Badge size="xl" variant="filled">
               Challenge {currentChallengeIndex + 1}/
-              {TOURNAMENT_CONFIG.numChallenges}
+              {tournamentConfig.numChallenges}
             </Badge>
           </Group>
         </Paper>
 
         {/* Progress Stepper */}
         <Stepper active={currentChallengeIndex} size="sm">
-          {TOURNAMENT_CONFIG.challenges.map((ch, idx) => (
+          {tournamentConfig.challenges.map((ch, idx) => (
             <Stepper.Step
               key={ch.id}
               label={`Challenge ${idx + 1}`}
               description={`${ch.displayName} - ${ch.dataset.toUpperCase()}`}
               icon={
-                completedChallenges.has(idx) ? (
+                completedChallenges.has(ch.id) ? (
                   <IconCheck size={18} />
                 ) : undefined
               }
-              color={completedChallenges.has(idx) ? "green" : undefined}
+              color={completedChallenges.has(ch.id) ? "green" : undefined}
             />
           ))}
         </Stepper>
@@ -564,7 +601,10 @@ const TournamentGame = ({ participantId, participantName, onAllCompleted }) => {
             leaderboardData={leaderboardData}
             visibleRankings={visibleRankings}
             onNextChallenge={() => {
-              if (currentChallengeIndex < TOURNAMENT_CONFIG.numChallenges - 1) {
+              if (
+                currentChallengeIndex <
+                tournamentConfig.challenges.length - 1
+              ) {
                 setCurrentChallengeIndex((prev) => prev + 1);
               }
             }}
@@ -608,7 +648,7 @@ const ScoreDisplay = ({
   // Add other participants if available
   if (leaderboardData) {
     leaderboardData.forEach((p) => {
-      const submission = p.submissions?.[challenge.number];
+      const submission = getSubmissionForecasts(p.submissions, challenge);
       // Skip current participant by checking participantId
       if (
         submission &&

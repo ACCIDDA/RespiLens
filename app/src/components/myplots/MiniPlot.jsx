@@ -15,7 +15,7 @@ import useQuantileForecastTraces from "../../hooks/useQuantileForecastTraces";
 import { MODEL_COLORS } from "../../config/datasets";
 import { nhsnSlugToNameMap, targetDisplayNameMap } from "../../utils/mapUtils";
 
-const MiniPlot = ({ plot }) => {
+const MiniPlot = ({ plot, onMetadataLoad, plotHeight = 210 }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,6 +32,7 @@ const MiniPlot = ({ plot }) => {
         if (!response.ok) throw new Error(`Data not found`);
         const json = await response.json();
         setData(json);
+        onMetadataLoad?.(json?.metadata || null);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -39,7 +40,7 @@ const MiniPlot = ({ plot }) => {
       }
     };
     fetchData();
-  }, [plot.fullDataPath]);
+  }, [plot.fullDataPath, onMetadataLoad]);
 
   const { traces: forecastTraces } = useQuantileForecastTraces({
     groundTruth: isNHSN ? null : data?.ground_truth,
@@ -137,8 +138,8 @@ const MiniPlot = ({ plot }) => {
 
     return {
       autosize: true,
-      height: 230,
-      margin: { l: 45, r: 10, t: 10, b: 35 },
+      height: plotHeight,
+      margin: { l: 40, r: 8, t: 8, b: 30 },
       showlegend: false,
       template: colorScheme === "dark" ? "plotly_dark" : "plotly_white",
       paper_bgcolor: "rgba(0,0,0,0)",
@@ -178,7 +179,7 @@ const MiniPlot = ({ plot }) => {
           }))
         : [],
     };
-  }, [colorScheme, plot.settings, isNHSN, data, finalTraces]);
+  }, [colorScheme, plot.settings, isNHSN, data, finalTraces, plotHeight]);
 
   // Helper for hover label content
   const tooltipContent = useMemo(() => {
@@ -254,13 +255,13 @@ const MiniPlot = ({ plot }) => {
 
   if (loading)
     return (
-      <Center h={230}>
+      <Center h={plotHeight}>
         <Loader size="sm" variant="dots" />
       </Center>
     );
   if (error)
     return (
-      <Center h={230}>
+      <Center h={plotHeight}>
         <Text size="xs" c="red">
           Error loading chart
         </Text>
@@ -276,7 +277,7 @@ const MiniPlot = ({ plot }) => {
       w={350}
       events={{ hover: true, focus: false, touch: true }}
     >
-      <Box h={230} style={{ overflow: "hidden", cursor: "grab" }}>
+      <Box h={plotHeight} style={{ overflow: "hidden", cursor: "grab" }}>
         <Plot
           data={finalTraces}
           layout={layout}

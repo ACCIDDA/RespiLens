@@ -3,20 +3,25 @@
  * Handles communication with Google Sheets backend via Apps Script
  */
 
-import { TOURNAMENT_CONFIG } from "../config";
+import { TOURNAMENT_CONFIG, getChallengeByNumber } from "../config";
 
 /**
  * Make a GET request to the tournament API
  * @param {string} action - API action
  * @param {Object} params - Query parameters
+ * @param {Object} tournamentConfig - Tournament configuration
  * @returns {Promise<Object>} Response data
  */
-const apiGet = async (action, params = {}) => {
-  const apiUrl = TOURNAMENT_CONFIG.apiUrl;
+const apiGet = async (
+  action,
+  params = {},
+  tournamentConfig = TOURNAMENT_CONFIG,
+) => {
+  const apiUrl = tournamentConfig.apiUrl;
 
   if (!apiUrl) {
     throw new Error(
-      "Tournament API URL not configured. Please set VITE_TOURNAMENT_API_URL in .env",
+      `Tournament API URL not configured for ${tournamentConfig.id}`,
     );
   }
 
@@ -53,14 +58,15 @@ const apiGet = async (action, params = {}) => {
 /**
  * Make a POST request to the tournament API
  * @param {Object} payload - Request payload
+ * @param {Object} tournamentConfig - Tournament configuration
  * @returns {Promise<Object>} Response data
  */
-const apiPost = async (payload) => {
-  const apiUrl = TOURNAMENT_CONFIG.apiUrl;
+const apiPost = async (payload, tournamentConfig = TOURNAMENT_CONFIG) => {
+  const apiUrl = tournamentConfig.apiUrl;
 
   if (!apiUrl) {
     throw new Error(
-      "Tournament API URL not configured. Please set VITE_TOURNAMENT_API_URL in .env",
+      `Tournament API URL not configured for ${tournamentConfig.id}`,
     );
   }
 
@@ -94,25 +100,33 @@ const apiPost = async (payload) => {
 /**
  * Register a new participant or login existing participant
  * @param {string} name - Participant's recognizable name
+ * @param {Object} tournamentConfig - Tournament configuration
  * @returns {Promise<Object>} Participant data {participantId, message}
  */
-export const registerParticipant = async (name) => {
+export const registerParticipant = async (
+  name,
+  tournamentConfig = TOURNAMENT_CONFIG,
+) => {
   if (!name) {
     throw new Error("Name is required");
   }
 
-  const data = await apiPost({
-    action: "register",
-    name: name.trim(),
-  });
+  const data = await apiPost(
+    {
+      action: "register",
+      tournamentId: tournamentConfig.id,
+      name: name.trim(),
+    },
+    tournamentConfig,
+  );
 
   // Store in localStorage
   localStorage.setItem(
-    TOURNAMENT_CONFIG.storageKeys.participantId,
+    tournamentConfig.storageKeys.participantId,
     data.participantId,
   );
   localStorage.setItem(
-    TOURNAMENT_CONFIG.storageKeys.participantName,
+    tournamentConfig.storageKeys.participantName,
     name.trim(),
   );
 
@@ -122,26 +136,33 @@ export const registerParticipant = async (name) => {
 /**
  * Submit a forecast for a challenge
  * @param {string} participantId - Participant ID
- * @param {number} challengeNum - Challenge number (1-5)
+ * @param {number} challengeNum - Stable enabled challenge number
  * @param {Array|Object} forecasts - Array of forecast entries (one per horizon) or single forecast object for backward compatibility
+ * @param {Object} tournamentConfig - Tournament configuration
  * @returns {Promise<Object>} Submission data {submissionId, message}
  */
 export const submitForecast = async (
   participantId,
   challengeNum,
   forecasts,
+  tournamentConfig = TOURNAMENT_CONFIG,
 ) => {
   if (!participantId) {
     throw new Error("Participant ID is required");
   }
 
-  if (
-    !challengeNum ||
-    challengeNum < 1 ||
-    challengeNum > TOURNAMENT_CONFIG.numChallenges
-  ) {
+  const challenge = getChallengeByNumber(
+    Number(challengeNum),
+    tournamentConfig,
+  );
+  if (!challengeNum || !challenge) {
+    const enabledChallengeNumbers = tournamentConfig.challenges
+      .map((enabledChallenge) => enabledChallenge.number)
+      .join(", ");
     throw new Error(
-      `Challenge number must be between 1 and ${TOURNAMENT_CONFIG.numChallenges}`,
+      enabledChallengeNumbers
+        ? `Challenge number must be one of: ${enabledChallengeNumbers}`
+        : "No tournament challenges are enabled",
     );
   }
 
@@ -173,17 +194,22 @@ export const submitForecast = async (
     q975: f.q975 || f.upper95,
   }));
 
-  const data = await apiPost({
-    action: "submitForecast",
-    participantId,
-    challengeNum,
-    forecasts: formattedForecasts,
-    // No WIS - scoring is done on frontend
-  });
+  const data = await apiPost(
+    {
+      action: "submitForecast",
+      tournamentId: tournamentConfig.id,
+      participantId,
+      challengeNum,
+      challengeId: challenge.id,
+      forecasts: formattedForecasts,
+      // No WIS - scoring is done on frontend
+    },
+    tournamentConfig,
+  );
 
   // Update last sync time
   localStorage.setItem(
-    TOURNAMENT_CONFIG.storageKeys.lastSync,
+    tournamentConfig.storageKeys.lastSync,
     new Date().toISOString(),
   );
 
@@ -192,24 +218,37 @@ export const submitForecast = async (
 
 /**
  * Get the leaderboard
+ * @param {Object} tournamentConfig - Tournament configuration
  * @returns {Promise<Array>} Leaderboard data
  */
-export const getLeaderboard = async () => {
-  const data = await apiGet("getLeaderboard");
+export const getLeaderboard = async (tournamentConfig = TOURNAMENT_CONFIG) => {
+  const data = await apiGet(
+    "getLeaderboard",
+    { tournamentId: tournamentConfig.id },
+    tournamentConfig,
+  );
   return data.leaderboard || [];
 };
 
 /**
  * Get participant data including submissions
  * @param {string} participantId - Participant ID
+ * @param {Object} tournamentConfig - Tournament configuration
  * @returns {Promise<Object>} Participant data {participant, submissions}
  */
-export const getParticipant = async (participantId) => {
+export const getParticipant = async (
+  participantId,
+  tournamentConfig = TOURNAMENT_CONFIG,
+) => {
   if (!participantId) {
     throw new Error("Participant ID is required");
   }
 
-  const data = await apiGet("getParticipant", { participantId });
+  const data = await apiGet(
+    "getParticipant",
+    { participantId, tournamentId: tournamentConfig.id },
+    tournamentConfig,
+  );
 
   return {
     participant: data.participant,
@@ -219,34 +258,44 @@ export const getParticipant = async (participantId) => {
 
 /**
  * Get participant ID from localStorage
+ * @param {Object} tournamentConfig - Tournament configuration
  * @returns {string|null} Participant ID or null if not found
  */
-export const getStoredParticipantId = () => {
-  return localStorage.getItem(TOURNAMENT_CONFIG.storageKeys.participantId);
+export const getStoredParticipantId = (
+  tournamentConfig = TOURNAMENT_CONFIG,
+) => {
+  return localStorage.getItem(tournamentConfig.storageKeys.participantId);
 };
 
 /**
  * Get participant name from localStorage
+ * @param {Object} tournamentConfig - Tournament configuration
  * @returns {string|null} Participant name or null if not found
  */
-export const getStoredParticipantName = () => {
-  return localStorage.getItem(TOURNAMENT_CONFIG.storageKeys.participantName);
+export const getStoredParticipantName = (
+  tournamentConfig = TOURNAMENT_CONFIG,
+) => {
+  return localStorage.getItem(tournamentConfig.storageKeys.participantName);
 };
 
 /**
  * Clear participant data from localStorage (logout)
+ * @param {Object} tournamentConfig - Tournament configuration
  */
-export const clearParticipantData = () => {
-  localStorage.removeItem(TOURNAMENT_CONFIG.storageKeys.participantId);
-  localStorage.removeItem(TOURNAMENT_CONFIG.storageKeys.participantName);
-  localStorage.removeItem(TOURNAMENT_CONFIG.storageKeys.submissions);
-  localStorage.removeItem(TOURNAMENT_CONFIG.storageKeys.lastSync);
+export const clearParticipantData = (tournamentConfig = TOURNAMENT_CONFIG) => {
+  localStorage.removeItem(tournamentConfig.storageKeys.participantId);
+  localStorage.removeItem(tournamentConfig.storageKeys.participantName);
+  localStorage.removeItem(tournamentConfig.storageKeys.submissions);
+  localStorage.removeItem(tournamentConfig.storageKeys.lastSync);
 };
 
 /**
  * Check if participant is registered
+ * @param {Object} tournamentConfig - Tournament configuration
  * @returns {boolean} True if participant ID is stored
  */
-export const isParticipantRegistered = () => {
-  return !!getStoredParticipantId();
+export const isParticipantRegistered = (
+  tournamentConfig = TOURNAMENT_CONFIG,
+) => {
+  return !!getStoredParticipantId(tournamentConfig);
 };

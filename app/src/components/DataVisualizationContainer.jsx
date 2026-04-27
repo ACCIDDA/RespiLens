@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Helmet } from "react-helmet-async";
 import {
   Stack,
   Container,
@@ -24,8 +23,9 @@ import {
   IconChartScatter,
 } from "@tabler/icons-react";
 import { useClipboard } from "@mantine/hooks";
+import Seo from "./Seo";
 
-const DataVisualizationContainer = () => {
+const DataVisualizationContainer = ({ disableSeo = false }) => {
   const {
     selectedLocation,
     data,
@@ -521,9 +521,12 @@ const DataVisualizationContainer = () => {
   if (viewType === "frontpage") {
     return (
       <ErrorBoundary onReset={() => window.location.reload()}>
-        <Helmet>
-          <title>RespiLens | Forecasts</title>
-        </Helmet>
+        {!disableSeo && (
+          <Seo
+            title="RespiLens | Forecasts"
+            description="Explore respiratory disease forecasts and surveillance data for influenza, COVID-19, RSV, and hospital respiratory metrics across the United States."
+          />
+        )}
         <Container size="xl" py="xl" style={{ maxWidth: "1400px" }}>
           <Stack gap="lg">
             <FrontPage />
@@ -535,9 +538,12 @@ const DataVisualizationContainer = () => {
 
   return (
     <ErrorBoundary onReset={() => window.location.reload()}>
-      <Helmet>
-        <title>RespiLens | {currentDataset?.fullName || "Forecasts"}</title>
-      </Helmet>
+      {!disableSeo && (
+        <Seo
+          title={`RespiLens | ${currentDataset?.fullName || "Forecasts"}`}
+          description={`View ${currentDataset?.fullName || "respiratory disease forecasts"} in RespiLens with model projections, observed trends, and state-level respiratory disease activity.`}
+        />
+      )}
       <Container size="xl" py="xl" style={{ maxWidth: "1400px" }}>
         <Stack gap="lg">
           <Paper shadow="sm" p="lg" radius="md" withBorder>

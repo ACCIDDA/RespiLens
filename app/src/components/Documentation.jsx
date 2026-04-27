@@ -1,4 +1,3 @@
-import { Helmet } from "react-helmet-async";
 import {
   Anchor,
   Container,
@@ -32,6 +31,7 @@ import {
   IconChevronUp,
 } from "@tabler/icons-react";
 import JsonView from "@uiw/react-json-view";
+import Seo from "./Seo";
 
 const glossaryItems = [
   { term: "forecasts", definition: "Data that is predicted (future)." },
@@ -252,9 +252,11 @@ const CollapsiblePaper = ({
 const Documentation = () => {
   return (
     <>
-      <Helmet>
-        <title>MyRespiLens Documentation</title>
-      </Helmet>
+      <Seo
+        title="MyRespiLens Documentation | RespiLens"
+        description="Learn how to prepare, convert, and upload respiratory disease forecast data for use with MyRespiLens visualizations."
+        canonicalPath="/documentation"
+      />
       <Container size="xl" py="xl" style={{ maxWidth: "1100px" }}>
         <Stack gap="lg">
           <CollapsiblePaper

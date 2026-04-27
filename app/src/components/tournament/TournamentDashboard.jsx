@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
-import { Container, Tabs } from "@mantine/core";
+import { Alert, Container, Tabs } from "@mantine/core";
 import { IconTrophy, IconChartLine } from "@tabler/icons-react";
 import {
   getStoredParticipantId,
   getStoredParticipantName,
 } from "../../utils/tournamentAPI";
+import { TOURNAMENT_CONFIG } from "../../config";
 import TournamentRegistration from "./TournamentRegistration";
 import TournamentGame from "./TournamentGame";
 import TournamentLeaderboard from "./TournamentLeaderboard";
 
-const TournamentDashboard = () => {
+const TournamentDashboard = ({ tournamentConfig = TOURNAMENT_CONFIG }) => {
   const [participantId, setParticipantId] = useState(null);
   const [participantName, setParticipantName] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,16 +18,14 @@ const TournamentDashboard = () => {
 
   // Load participant data on mount
   useEffect(() => {
-    const storedId = getStoredParticipantId();
-    const storedName = getStoredParticipantName();
+    const storedId = getStoredParticipantId(tournamentConfig);
+    const storedName = getStoredParticipantName(tournamentConfig);
 
-    if (storedId) {
-      setParticipantId(storedId);
-      setParticipantName(storedName);
-    }
+    setParticipantId(storedId || null);
+    setParticipantName(storedName || null);
 
     setLoading(false);
-  }, []);
+  }, [tournamentConfig]);
 
   // Handle successful registration
   const handleRegistration = (id, name) => {
@@ -39,9 +38,24 @@ const TournamentDashboard = () => {
     setActiveTab("leaderboard");
   };
 
+  if (tournamentConfig.numChallenges === 0) {
+    return (
+      <Container size="md" py="xl">
+        <Alert color="yellow" title="No tournament challenges enabled">
+          Enable at least one challenge in the tournament registry.
+        </Alert>
+      </Container>
+    );
+  }
+
   // Show registration if not registered
   if (!participantId && !loading) {
-    return <TournamentRegistration onSuccess={handleRegistration} />;
+    return (
+      <TournamentRegistration
+        tournamentConfig={tournamentConfig}
+        onSuccess={handleRegistration}
+      />
+    );
   }
 
   if (loading) {
@@ -65,6 +79,7 @@ const TournamentDashboard = () => {
 
         <Tabs.Panel value="challenges" pt="md">
           <TournamentGame
+            tournamentConfig={tournamentConfig}
             participantId={participantId}
             participantName={participantName}
             onAllCompleted={goToLeaderboard}
@@ -72,7 +87,10 @@ const TournamentDashboard = () => {
         </Tabs.Panel>
 
         <Tabs.Panel value="leaderboard" pt="md">
-          <TournamentLeaderboard participantId={participantId} />
+          <TournamentLeaderboard
+            tournamentConfig={tournamentConfig}
+            participantId={participantId}
+          />
         </Tabs.Panel>
       </Tabs>
     </Container>
