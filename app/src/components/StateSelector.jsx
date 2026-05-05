@@ -21,6 +21,11 @@ import ViewSelector from "./ViewSelector";
 import TargetSelector from "./TargetSelector";
 import ForecastChartControls from "./controls/ForecastChartControls";
 import { getDataPath } from "../utils/paths";
+import {
+  NSSP_STATE_ABBREVIATION_TO_INFO,
+  fetchNsspTopLevelLocations,
+  getNsspTopLevelLocation,
+} from "../utils/nsspGeo";
 
 const METRO_STATE_MAP = {
   Colorado: "CO",
@@ -38,75 +43,38 @@ const METRO_STATE_MAP = {
   Oregon: "OR",
 };
 
-const STATE_ABBREVIATIONS = {
-  Alabama: "AL",
-  Alaska: "AK",
-  Arizona: "AZ",
-  Arkansas: "AR",
-  California: "CA",
-  Colorado: "CO",
-  Connecticut: "CT",
-  Delaware: "DE",
-  "District of Columbia": "DC",
-  Florida: "FL",
-  Georgia: "GA",
-  Hawaii: "HI",
-  Idaho: "ID",
-  Illinois: "IL",
-  Indiana: "IN",
-  Iowa: "IA",
-  Kansas: "KS",
-  Kentucky: "KY",
-  Louisiana: "LA",
-  Maine: "ME",
-  Maryland: "MD",
-  Massachusetts: "MA",
-  Michigan: "MI",
-  Minnesota: "MN",
-  Mississippi: "MS",
-  Montana: "MT",
-  Nebraska: "NE",
-  Nevada: "NV",
-  "New Hampshire": "NH",
-  "New Jersey": "NJ",
-  "New Mexico": "NM",
-  "New York": "NY",
-  "North Carolina": "NC",
-  "North Dakota": "ND",
-  Ohio: "OH",
-  Oklahoma: "OK",
-  Oregon: "OR",
-  Pennsylvania: "PA",
-  "Rhode Island": "RI",
-  "South Carolina": "SC",
-  "South Dakota": "SD",
-  Tennessee: "TN",
-  Texas: "TX",
-  "United States": "US",
-  Utah: "UT",
-  Vermont: "VT",
-  Virginia: "VA",
-  Washington: "WA",
-  "West Virginia": "WV",
-  Wisconsin: "WI",
-  Wyoming: "WY",
+const normalizeLocationEntry = (entry) => {
+  if (!entry) {
+    return null;
+  }
+
+  if (typeof entry === "string") {
+    const stateInfo = NSSP_STATE_ABBREVIATION_TO_INFO[entry];
+    return {
+      abbreviation: entry,
+      location_name: stateInfo?.name || entry,
+    };
+  }
+
+  if (Array.isArray(entry)) {
+    const [locationName, abbreviation] = entry;
+    return {
+      abbreviation: abbreviation || locationName,
+      location_name: locationName || abbreviation,
+    };
+  }
+
+  if (typeof entry === "object") {
+    return {
+      ...entry,
+      abbreviation: entry.abbreviation || entry.location || entry.location_name,
+      location_name:
+        entry.location_name || entry.abbreviation || entry.location,
+    };
+  }
+
+  return null;
 };
-
-const normalizeNsspLocations = (locations = []) =>
-  locations
-    .map(([stateName, subLocation]) => {
-      const stateCode = STATE_ABBREVIATIONS[stateName];
-      if (!stateCode || !subLocation) {
-        return null;
-      }
-
-      return {
-        abbreviation: `${stateCode}_${subLocation}`,
-        location_name:
-          subLocation === "All" ? stateName : `${stateName} (${subLocation})`,
-      };
-    })
-    .filter(Boolean);
 
 const StateSelector = () => {
   const {
@@ -128,6 +96,10 @@ const StateSelector = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const selectedTopLevelLocation =
+    viewType === "nsspall"
+      ? getNsspTopLevelLocation(selectedLocation)
+      : selectedLocation;
 
   useEffect(() => {
     const controller = new AbortController(); // controller prevents issues if you click away while locs are loading
@@ -152,15 +124,18 @@ const StateSelector = () => {
           throw new Error(`Failed: ${manifestResponse.statusText}`);
 
         const metadata = await manifestResponse.json();
+        const normalizedLocations = (metadata.locations || [])
+          .map(normalizeLocationEntry)
+          .filter(Boolean);
         let finalOrderedList = [];
 
         if (isMetro) {
-          const locations = metadata.locations;
+          const locations = normalizedLocations;
           const statesOnly = locations.filter(
-            (l) => !l.location_name.includes(","),
+            (l) => !(l.location_name || "").includes(","),
           );
           const citiesOnly = locations.filter((l) =>
-            l.location_name.includes(","),
+            (l.location_name || "").includes(","),
           );
           statesOnly.sort((a, b) =>
             a.location_name.localeCompare(b.location_name),
@@ -183,19 +158,9 @@ const StateSelector = () => {
           );
           finalOrderedList.push(...leftovers);
         } else if (viewType === "nsspall") {
-          finalOrderedList = normalizeNsspLocations(metadata.locations).sort(
-            (a, b) => {
-              const isADefault = a.abbreviation === "US_All";
-              const isBDefault = b.abbreviation === "US_All";
-              if (isADefault) return -1;
-              if (isBDefault) return 1;
-              return (a.location_name || "").localeCompare(
-                b.location_name || "",
-              );
-            },
-          );
+          finalOrderedList = await fetchNsspTopLevelLocations();
         } else {
-          finalOrderedList = metadata.locations.sort((a, b) => {
+          finalOrderedList = normalizedLocations.sort((a, b) => {
             const isA_Default = a.abbreviation === "US";
             const isB_Default = b.abbreviation === "US";
             if (isA_Default) return -1;
@@ -221,16 +186,20 @@ const StateSelector = () => {
   useEffect(() => {
     if (states.length > 0) {
       const index = states.findIndex(
-        (state) => state.abbreviation === selectedLocation,
+        (state) => state.abbreviation === selectedTopLevelLocation,
       );
       setHighlightedIndex(index >= 0 ? index : 0);
     }
-  }, [states, selectedLocation]);
+  }, [states, selectedTopLevelLocation]);
 
   const filteredStates = states.filter(
     (state) =>
-      state.location_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      state.abbreviation.toLowerCase().includes(searchTerm.toLowerCase()),
+      (state.location_name || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (state.abbreviation || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()),
   );
 
   const handleSearchChange = (e) => {
@@ -241,7 +210,7 @@ const StateSelector = () => {
       setHighlightedIndex(0);
     } else if (newSearchTerm.length === 0) {
       const index = states.findIndex(
-        (state) => state.abbreviation === selectedLocation,
+        (state) => state.abbreviation === selectedTopLevelLocation,
       );
       setHighlightedIndex(index >= 0 ? index : 0);
     }
@@ -361,7 +330,8 @@ const StateSelector = () => {
         <ScrollArea style={{ flex: 1, minHeight: 0 }} type="auto">
           <Stack gap="xs">
             {filteredStates.map((state, index) => {
-              const isSelected = selectedLocation === state.abbreviation;
+              const isSelected =
+                selectedTopLevelLocation === state.abbreviation;
               const isKeyboardHighlighted =
                 (searchTerm.length > 0 || index === highlightedIndex) &&
                 index === highlightedIndex &&
