@@ -117,6 +117,7 @@ export const normalizeCountyBasename = (value = "") =>
     .trim();
 
 let nsspMetadataPromise;
+let nsspLocationInfoPromise;
 let statesTopoPromise;
 let countiesTopoPromise;
 let countyMetadataPromise;
@@ -127,6 +128,13 @@ const getNsspMetadata = () => {
     nsspMetadataPromise = fetchJson(getDataPath("nssp/metadata.json"));
   }
   return nsspMetadataPromise;
+};
+
+const getNsspLocationInfo = () => {
+  if (!nsspLocationInfoPromise) {
+    nsspLocationInfoPromise = fetchJson(getDataPath("nssp/location_info.json"));
+  }
+  return nsspLocationInfoPromise;
 };
 
 const getStatesTopology = () => {
@@ -209,6 +217,41 @@ export const fetchNsspStatesGeoJson = async (allowedAbbreviations = []) => {
   };
 };
 
+export const fetchNsspStateCoverage = async () => {
+  const locationInfo = await getNsspLocationInfo();
+
+  return Object.fromEntries(
+    NSSP_STATE_INFO.map((stateInfo) => {
+      if (stateInfo.abbreviation === "US") {
+        return [
+          stateInfo.abbreviation,
+          {
+            hasAnyData: true,
+            hasCountyData: false,
+            availableCountyNames: new Set(),
+          },
+        ];
+      }
+
+      const stateLocationInfo = locationInfo[stateInfo.name];
+      const availableCountyNames = new Set(
+        (stateLocationInfo?.["county names"] || [])
+          .filter((countyName) => countyName !== "All")
+          .map((countyName) => normalizeCountyBasename(countyName)),
+      );
+
+      return [
+        stateInfo.abbreviation,
+        {
+          hasAnyData: Boolean(stateLocationInfo),
+          hasCountyData: availableCountyNames.size > 0,
+          availableCountyNames,
+        },
+      ];
+    }),
+  );
+};
+
 export const fetchNsspCountiesGeoJson = async (stateAbbreviation) => {
   const stateInfo = NSSP_STATE_ABBREVIATION_TO_INFO[stateAbbreviation];
   if (!stateInfo?.fips || stateInfo.fips === "US") {
@@ -266,6 +309,7 @@ export const fetchNsspCountyAssignments = async (stateAbbreviation) => {
       stateAbbreviation,
       (async () => {
         const metadata = await getNsspMetadata();
+        const locationInfo = await getNsspLocationInfo();
         const stateInfo = NSSP_STATE_ABBREVIATION_TO_INFO[stateAbbreviation];
         if (!stateInfo) {
           throw new Error(
@@ -280,6 +324,11 @@ export const fetchNsspCountyAssignments = async (stateAbbreviation) => {
 
         const countyAssignments = {};
         let statewideLocationId = `${stateAbbreviation}_All`;
+        const availableCountyNames = new Set(
+          (locationInfo[stateInfo.name]?.["county names"] || [])
+            .filter((countyName) => countyName !== "All")
+            .map((countyName) => normalizeCountyBasename(countyName)),
+        );
 
         await Promise.all(
           relevantLocations.map(async ([, subLocation]) => {
@@ -312,6 +361,8 @@ export const fetchNsspCountyAssignments = async (stateAbbreviation) => {
         return {
           stateName: stateInfo.name,
           statewideLocationId,
+          hasCountyData: availableCountyNames.size > 0,
+          availableCountyNames,
           countyAssignments,
         };
       })(),
@@ -326,6 +377,18 @@ export const getCountySelectionForFeature = (feature, assignmentData) => {
     feature?.properties?.BASENAME || feature?.properties?.NAME;
   const countyDisplayName = feature?.properties?.NAME || countyBasename;
   const normalizedCountyName = normalizeCountyBasename(countyBasename);
+
+  if (!assignmentData.availableCountyNames.has(normalizedCountyName)) {
+    return {
+      countyName: countyDisplayName,
+      locationId: null,
+      groupLabel: null,
+      hsaId: null,
+      isStatewideFallback: false,
+      hasData: false,
+    };
+  }
+
   const matchedAssignment =
     assignmentData.countyAssignments[normalizedCountyName];
 
@@ -336,6 +399,7 @@ export const getCountySelectionForFeature = (feature, assignmentData) => {
       groupLabel: matchedAssignment.groupLabel,
       hsaId: matchedAssignment.hsaId,
       isStatewideFallback: false,
+      hasData: true,
     };
   }
 
@@ -345,6 +409,7 @@ export const getCountySelectionForFeature = (feature, assignmentData) => {
     groupLabel: `${assignmentData.stateName} statewide`,
     hsaId: "All",
     isStatewideFallback: true,
+    hasData: true,
   };
 };
 

@@ -19,8 +19,8 @@ import {
   NSSP_STATE_ABBREVIATION_TO_INFO,
   fetchNsspCountiesGeoJson,
   fetchNsspCountyAssignments,
+  fetchNsspStateCoverage,
   fetchNsspStatesGeoJson,
-  fetchNsspTopLevelLocations,
   getCountyDisplayLabel,
   getCountySelectionForFeature,
   getNsspStateAbbreviationFromLocation,
@@ -40,6 +40,7 @@ const MAP_COLORS = {
   outline: "#355070",
   hover: "#5f8fda",
   fallback: "#edf3fb",
+  unavailable: "#d7d7db",
 };
 
 const formatValue = (value) => {
@@ -81,6 +82,7 @@ const GeoMap = ({
   height,
   projectionKind,
   onFeatureClick,
+  isFeatureClickable,
   getFeatureKey,
   getFeatureLabel,
   getFeatureFill,
@@ -115,6 +117,9 @@ const GeoMap = ({
         }
 
         const label = getFeatureLabel(feature);
+        const isClickable = isFeatureClickable
+          ? isFeatureClickable(feature)
+          : true;
         return (
           <path
             key={getFeatureKey(feature)}
@@ -122,10 +127,19 @@ const GeoMap = ({
             fill={getFeatureFill(feature)}
             stroke={MAP_COLORS.outline}
             strokeWidth={0.8}
-            style={{ cursor: "pointer", transition: "fill 150ms ease" }}
-            onClick={() => onFeatureClick(feature)}
+            style={{
+              cursor: isClickable ? "pointer" : "not-allowed",
+              transition: "fill 150ms ease",
+            }}
+            onClick={() => {
+              if (isClickable) {
+                onFeatureClick(feature);
+              }
+            }}
             onMouseEnter={(event) => {
-              event.currentTarget.style.fill = MAP_COLORS.hover;
+              if (isClickable) {
+                event.currentTarget.style.fill = MAP_COLORS.hover;
+              }
             }}
             onMouseLeave={(event) => {
               event.currentTarget.style.fill = getFeatureFill(feature);
@@ -144,6 +158,7 @@ const NSSPView = ({ location, data, metadata }) => {
   const [usMapData, setUsMapData] = useState(null);
   const [stateMapData, setStateMapData] = useState(null);
   const [countyAssignmentData, setCountyAssignmentData] = useState(null);
+  const [stateCoverage, setStateCoverage] = useState({});
   const [mapLoading, setMapLoading] = useState(false);
   const [mapError, setMapError] = useState(null);
   const [selectedCounty, setSelectedCounty] = useState(null);
@@ -152,12 +167,38 @@ const NSSPView = ({ location, data, metadata }) => {
   const stateInfo = NSSP_STATE_ABBREVIATION_TO_INFO[stateAbbreviation];
   const isUnitedStates = isNsspUnitedStatesLocation(location);
   const isStatewide = isNsspStatewideLocation(location);
+  const currentStateCoverage = stateCoverage[stateAbbreviation] || {
+    hasAnyData: false,
+    hasCountyData: false,
+  };
 
   useEffect(() => {
     if (isUnitedStates || isStatewide) {
       setSelectedCounty(null);
     }
   }, [isStatewide, isUnitedStates, location]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadCoverage = async () => {
+      try {
+        const coverage = await fetchNsspStateCoverage();
+        if (isActive) {
+          setStateCoverage(coverage);
+        }
+      } catch (error) {
+        if (isActive) {
+          setMapError(error.message);
+        }
+      }
+    };
+
+    loadCoverage();
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -171,12 +212,7 @@ const NSSPView = ({ location, data, metadata }) => {
         setMapLoading(true);
         setMapError(null);
         setUsMapData(null);
-        const topLevelLocations = await fetchNsspTopLevelLocations();
-        const allowedAbbreviations = topLevelLocations.map((entry) =>
-          entry.abbreviation.replace("_All", ""),
-        );
-        const statesGeoJson =
-          await fetchNsspStatesGeoJson(allowedAbbreviations);
+        const statesGeoJson = await fetchNsspStatesGeoJson();
         if (isActive) {
           setUsMapData(statesGeoJson);
         }
@@ -201,7 +237,14 @@ const NSSPView = ({ location, data, metadata }) => {
     let isActive = true;
 
     const loadStateMap = async () => {
-      if (isUnitedStates || !stateAbbreviation || stateAbbreviation === "US") {
+      if (
+        isUnitedStates ||
+        !stateAbbreviation ||
+        stateAbbreviation === "US" ||
+        !currentStateCoverage.hasCountyData
+      ) {
+        setStateMapData(null);
+        setCountyAssignmentData(null);
         return;
       }
 
@@ -234,7 +277,7 @@ const NSSPView = ({ location, data, metadata }) => {
     return () => {
       isActive = false;
     };
-  }, [isUnitedStates, stateAbbreviation]);
+  }, [currentStateCoverage.hasCountyData, isUnitedStates, stateAbbreviation]);
 
   const summary = useMemo(
     () => summarizeData(location, data, metadata, selectedCounty),
@@ -247,7 +290,10 @@ const NSSPView = ({ location, data, metadata }) => {
 
   const handleUnitedStatesStateClick = (feature) => {
     const nextStateAbbreviation = feature?.properties?.STUSAB;
-    if (!nextStateAbbreviation) {
+    if (
+      !nextStateAbbreviation ||
+      !stateCoverage[nextStateAbbreviation]?.hasAnyData
+    ) {
       return;
     }
     setSelectedCounty(null);
@@ -263,6 +309,9 @@ const NSSPView = ({ location, data, metadata }) => {
       feature,
       countyAssignmentData,
     );
+    if (!selection.hasData || !selection.locationId) {
+      return;
+    }
     setSelectedCounty(selection);
     handleLocationSelect(selection.locationId);
   };
@@ -276,6 +325,9 @@ const NSSPView = ({ location, data, metadata }) => {
       feature,
       countyAssignmentData,
     );
+    if (!selection.hasData) {
+      return MAP_COLORS.unavailable;
+    }
     const isSelectedByLocation = selection.locationId === location;
     const isExplicitCountySelection =
       selectedCounty &&
@@ -294,6 +346,27 @@ const NSSPView = ({ location, data, metadata }) => {
       ? MAP_COLORS.fallback
       : MAP_COLORS.base;
   };
+
+  const getStateFill = (feature) => {
+    const featureStateAbbreviation = feature.properties?.STUSAB;
+    const coverage = stateCoverage[featureStateAbbreviation];
+
+    if (!coverage?.hasAnyData) {
+      return MAP_COLORS.unavailable;
+    }
+
+    return featureStateAbbreviation === stateAbbreviation
+      ? MAP_COLORS.selected
+      : MAP_COLORS.base;
+  };
+
+  const isStateClickable = (feature) =>
+    Boolean(stateCoverage[feature.properties?.STUSAB]?.hasAnyData);
+
+  const isCountyClickable = (feature) =>
+    Boolean(
+      getCountySelectionForFeature(feature, countyAssignmentData).hasData,
+    );
 
   if (!data?.series?.dates) {
     return (
@@ -356,7 +429,7 @@ const NSSPView = ({ location, data, metadata }) => {
           </Group>
           <Text size="sm" c="dimmed">
             {isUnitedStates
-              ? "Click a state to open its county map."
+              ? "Click a state to open county data when available. States without NSSP data are grayed out."
               : "Click a county to load its NSSP summary. Shared HSA groupings will lead to the same summary."}
           </Text>
 
@@ -378,24 +451,27 @@ const NSSPView = ({ location, data, metadata }) => {
               height={US_MAP_HEIGHT}
               projectionKind="usa"
               onFeatureClick={handleUnitedStatesStateClick}
+              isFeatureClickable={isStateClickable}
               getFeatureKey={(feature) => feature.properties?.GEOID}
               getFeatureLabel={(feature) => feature.properties?.NAME}
-              getFeatureFill={(feature) =>
-                feature.properties?.STUSAB === stateAbbreviation
-                  ? MAP_COLORS.selected
-                  : MAP_COLORS.base
-              }
+              getFeatureFill={getStateFill}
             />
-          ) : (
+          ) : currentStateCoverage.hasCountyData ? (
             <GeoMap
               featureCollection={stateMapData}
               height={STATE_MAP_HEIGHT}
               projectionKind="state"
               onFeatureClick={handleCountyClick}
+              isFeatureClickable={isCountyClickable}
               getFeatureKey={(feature) => feature.properties?.GEOID}
               getFeatureLabel={(feature) => feature.properties?.NAME}
               getFeatureFill={getCountyFill}
             />
+          ) : (
+            <Alert color="blue" variant="light">
+              County-level NSSP data is not available for {stateInfo?.name}.
+              Showing the statewide summary below.
+            </Alert>
           )}
         </Stack>
       </Paper>
@@ -431,49 +507,50 @@ const NSSPView = ({ location, data, metadata }) => {
         </SimpleGrid>
       )}
 
-      {!isUnitedStates && !isStatewide && (
-        <Paper withBorder radius="md" p="lg">
-          <Stack gap="md">
-            <Group justify="space-between" align="flex-start">
-              <div>
-                <Title order={4}>
-                  {selectedCounty
-                    ? getCountyDisplayLabel(selectedCounty.countyName)
-                    : "Selected HSA summary"}
-                </Title>
-                <Text size="sm" c="dimmed">
-                  Last updated: {summary.lastUpdated}
-                </Text>
-              </div>
-              <Badge variant="light">
-                {currentHsaId === "All"
-                  ? "Statewide data"
-                  : `HSA ${currentHsaId}`}
-              </Badge>
-            </Group>
-
-            <Alert color="blue" variant="light">
-              <Text size="sm">Data source grouping: {currentGroupLabel}</Text>
-            </Alert>
-
-            <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-              {summary.latestMetrics.map(({ metricName, latestValue }) => (
-                <Paper key={metricName} withBorder radius="md" p="md">
+      {!isUnitedStates &&
+        (!isStatewide || !currentStateCoverage.hasCountyData) && (
+          <Paper withBorder radius="md" p="lg">
+            <Stack gap="md">
+              <Group justify="space-between" align="flex-start">
+                <div>
+                  <Title order={4}>
+                    {selectedCounty
+                      ? getCountyDisplayLabel(selectedCounty.countyName)
+                      : "Selected HSA summary"}
+                  </Title>
                   <Text size="sm" c="dimmed">
-                    {metricName}
+                    Last updated: {summary.lastUpdated}
                   </Text>
-                  <Text fw={700} size="lg">
-                    {formatValue(latestValue)}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Latest date: {summary.latestDate}
-                  </Text>
-                </Paper>
-              ))}
-            </SimpleGrid>
-          </Stack>
-        </Paper>
-      )}
+                </div>
+                <Badge variant="light">
+                  {currentHsaId === "All"
+                    ? "Statewide data"
+                    : `HSA ${currentHsaId}`}
+                </Badge>
+              </Group>
+
+              <Alert color="blue" variant="light">
+                <Text size="sm">Data source grouping: {currentGroupLabel}</Text>
+              </Alert>
+
+              <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+                {summary.latestMetrics.map(({ metricName, latestValue }) => (
+                  <Paper key={metricName} withBorder radius="md" p="md">
+                    <Text size="sm" c="dimmed">
+                      {metricName}
+                    </Text>
+                    <Text fw={700} size="lg">
+                      {formatValue(latestValue)}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Latest date: {summary.latestDate}
+                    </Text>
+                  </Paper>
+                ))}
+              </SimpleGrid>
+            </Stack>
+          </Paper>
+        )}
     </Stack>
   );
 };
