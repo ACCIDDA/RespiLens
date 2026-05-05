@@ -190,10 +190,7 @@ const ViewSwitchboard = ({
       );
 
     case "nsspall":
-      return (
-        // TODO: write processing for the data
-        <NSSPView />
-      );
+      return <NSSPView location={location} data={data} metadata={metadata} />;
 
     default:
       return (

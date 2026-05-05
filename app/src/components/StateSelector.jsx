@@ -38,11 +38,82 @@ const METRO_STATE_MAP = {
   Oregon: "OR",
 };
 
+const STATE_ABBREVIATIONS = {
+  Alabama: "AL",
+  Alaska: "AK",
+  Arizona: "AZ",
+  Arkansas: "AR",
+  California: "CA",
+  Colorado: "CO",
+  Connecticut: "CT",
+  Delaware: "DE",
+  "District of Columbia": "DC",
+  Florida: "FL",
+  Georgia: "GA",
+  Hawaii: "HI",
+  Idaho: "ID",
+  Illinois: "IL",
+  Indiana: "IN",
+  Iowa: "IA",
+  Kansas: "KS",
+  Kentucky: "KY",
+  Louisiana: "LA",
+  Maine: "ME",
+  Maryland: "MD",
+  Massachusetts: "MA",
+  Michigan: "MI",
+  Minnesota: "MN",
+  Mississippi: "MS",
+  Montana: "MT",
+  Nebraska: "NE",
+  Nevada: "NV",
+  "New Hampshire": "NH",
+  "New Jersey": "NJ",
+  "New Mexico": "NM",
+  "New York": "NY",
+  "North Carolina": "NC",
+  "North Dakota": "ND",
+  Ohio: "OH",
+  Oklahoma: "OK",
+  Oregon: "OR",
+  Pennsylvania: "PA",
+  "Rhode Island": "RI",
+  "South Carolina": "SC",
+  "South Dakota": "SD",
+  Tennessee: "TN",
+  Texas: "TX",
+  "United States": "US",
+  Utah: "UT",
+  Vermont: "VT",
+  Virginia: "VA",
+  Washington: "WA",
+  "West Virginia": "WV",
+  Wisconsin: "WI",
+  Wyoming: "WY",
+};
+
+const normalizeNsspLocations = (locations = []) =>
+  locations
+    .map(([stateName, subLocation]) => {
+      const stateCode = STATE_ABBREVIATIONS[stateName];
+      if (!stateCode || !subLocation) {
+        return null;
+      }
+
+      return {
+        abbreviation: `${stateCode}_${subLocation}`,
+        location_name:
+          subLocation === "All" ? stateName : `${stateName} (${subLocation})`,
+      };
+    })
+    .filter(Boolean);
+
 const StateSelector = () => {
   const {
     selectedLocation,
     handleLocationSelect,
     viewType,
+    currentDataset,
     chartScale,
     setChartScale,
     intervalVisibility,
@@ -68,7 +139,9 @@ const StateSelector = () => {
       // different fetching/ordering if it is metrocast vs. other views
       try {
         const isMetro = viewType === "metrocast_forecasts";
-        const directory = isMetro ? "flumetrocast" : "flusight";
+        const directory = isMetro
+          ? "flumetrocast"
+          : currentDataset?.dataPath || "flusight";
 
         const manifestResponse = await fetch(
           getDataPath(`${directory}/metadata.json`),
@@ -109,6 +182,18 @@ const StateSelector = () => {
             (l) => !handledIds.includes(l.abbreviation),
           );
           finalOrderedList.push(...leftovers);
+        } else if (viewType === "nsspall") {
+          finalOrderedList = normalizeNsspLocations(metadata.locations).sort(
+            (a, b) => {
+              const isADefault = a.abbreviation === "US_All";
+              const isBDefault = b.abbreviation === "US_All";
+              if (isADefault) return -1;
+              if (isBDefault) return 1;
+              return (a.location_name || "").localeCompare(
+                b.location_name || "",
+              );
+            },
+          );
         } else {
           finalOrderedList = metadata.locations.sort((a, b) => {
             const isA_Default = a.abbreviation === "US";
@@ -131,7 +216,7 @@ const StateSelector = () => {
     fetchStates();
 
     return () => controller.abort();
-  }, [viewType]);
+  }, [viewType, currentDataset]);
 
   useEffect(() => {
     if (states.length > 0) {
@@ -247,7 +332,7 @@ const StateSelector = () => {
                 setIntervalVisibility={setIntervalVisibility}
                 showLegend={showLegend}
                 setShowLegend={setShowLegend}
-                showIntervals={viewType !== "nhsnall"}
+                showIntervals={viewType !== "nhsnall" && viewType !== "nsspall"}
               />
             </Accordion.Panel>
           </Accordion.Item>

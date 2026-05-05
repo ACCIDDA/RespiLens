@@ -241,6 +241,7 @@ export const ViewProvider = ({ children }) => {
       const newSearchParams = new URLSearchParams(searchParams);
 
       const isMovingToMetrocast = newView === "metrocast_forecasts";
+      const isMovingToNssp = newView === "nsspall";
 
       if (isMovingToMetrocast) {
         const needsCityDefault =
@@ -250,6 +251,17 @@ export const ViewProvider = ({ children }) => {
         if (needsCityDefault && newDataset?.defaultLocation) {
           setSelectedLocation(newDataset.defaultLocation);
           newSearchParams.delete("location");
+        }
+      } else if (isMovingToNssp) {
+        if (selectedLocation === APP_CONFIG.defaultLocation) {
+          const nextLocation =
+            newDataset?.defaultLocation || `${APP_CONFIG.defaultLocation}_All`;
+          setSelectedLocation(nextLocation);
+          newSearchParams.delete("location");
+        } else if (selectedLocation.length === 2) {
+          const nextLocation = `${selectedLocation}_All`;
+          setSelectedLocation(nextLocation);
+          newSearchParams.set("location", nextLocation);
         }
       } else {
         if (

@@ -80,6 +80,7 @@ export const DATASETS = {
     titleName: "NSSP Surveillance Data",
     views: [{ key: "all", label: "All Data", value: "nsspall" }],
     defaultView: "nsspall",
+    defaultLocation: "US_All",
     defaultColumn: "TO DO",
     hasDateSelector: false,
     hasModelSelector: false,

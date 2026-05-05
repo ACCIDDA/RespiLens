@@ -45,7 +45,12 @@ export const useForecastData = (location, viewType) => {
       setError(null);
       setData(null);
       setMetadata(null);
+      setAvailableDates([]);
+      setModels([]);
       setAvailableTargets([]);
+      setModelsByTarget({});
+      setAvailablePeakDates([]);
+      setAvailablePeakModels([]);
 
       try {
         const datasetMap = {
@@ -68,8 +73,13 @@ export const useForecastData = (location, viewType) => {
         const datasetConfig = datasetMap[viewType];
         if (!datasetConfig) throw new Error(`Unknown view type: ${viewType}`);
 
+        const resolvedLocation =
+          viewType === "nsspall" && location && !location.includes("_")
+            ? `${location}_All`
+            : location;
+
         const dataPath = getDataPath(
-          `${datasetConfig.directory}/${location}_${datasetConfig.suffix}.json`,
+          `${datasetConfig.directory}/${resolvedLocation}_${datasetConfig.suffix}.json`,
         );
         console.log(`[useForecastData] Attempting fetch from: ${dataPath}`); // REMOVE after debug
         const metadataPath = getDataPath(
@@ -136,6 +146,10 @@ export const useForecastData = (location, viewType) => {
             modelsByTargetState[target] = Array.from(modelSet).sort();
           }
           setModelsByTarget(modelsByTargetState);
+        }
+
+        if (jsonData?.series?.dates) {
+          setAvailableDates(jsonData.series.dates);
         }
 
         let targets = [];
