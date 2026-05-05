@@ -1,6 +1,7 @@
 import React from "react";
 
 const NSSPView = () => {
+  console.log(`You made it to nssp`);
   const containerStyle = {
     padding: "40px",
     textAlign: "center",

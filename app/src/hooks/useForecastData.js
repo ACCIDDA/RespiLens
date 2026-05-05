@@ -38,6 +38,9 @@ export const useForecastData = (location, viewType) => {
     }
 
     const fetchData = async () => {
+      console.log(
+        `[useForecastData] Triggered for View: ${viewType}, Location: ${location}`,
+      ); // REMOVE after debug
       setLoading(true);
       setError(null);
       setData(null);
@@ -68,6 +71,7 @@ export const useForecastData = (location, viewType) => {
         const dataPath = getDataPath(
           `${datasetConfig.directory}/${location}_${datasetConfig.suffix}.json`,
         );
+        console.log(`[useForecastData] Attempting fetch from: ${dataPath}`); // REMOVE after debug
         const metadataPath = getDataPath(
           `${datasetConfig.directory}/metadata.json`,
         );
@@ -76,6 +80,9 @@ export const useForecastData = (location, viewType) => {
           fetch(dataPath),
           fetch(metadataPath),
         ]);
+        console.log(
+          `[useForecastData] Data Response OK: ${dataResponse.ok}, Status: ${dataResponse.status}`,
+        );
 
         if (!dataResponse.ok)
           throw new Error(`Failed to fetch data: ${dataResponse.status}`);
@@ -85,6 +92,9 @@ export const useForecastData = (location, viewType) => {
           );
 
         const jsonData = await dataResponse.json();
+        console.log(
+          `[useForecastData] Successfully parsed JSON for ${viewType}`,
+        );
         const jsonMetadata = await metadataResponse.json();
 
         setData(jsonData);
