@@ -23,6 +23,23 @@ class NSSPDataProcessor:
 
         self._process_data()
 
+    def _record_location_info(self, data: pd.DataFrame):
+        """Build JSON content that shows which counties (if any) are represented by every state."""
+        location_info = {}
+        state_gbo = data.groupby('geography')
+        for large_loc_aggregate, df in state_gbo:
+            hsa_ids = list(set(df["hsa_nci_id"]))
+            all_counties = set()
+            for entry in df["hsa_counties"].dropna():
+                counties = [c.strip() for c in entry.split(',')]
+                all_counties.update(counties)
+            
+            location_info[large_loc_aggregate] = {
+                "county names": sorted(list(all_counties)), 
+                "hsa_ids": hsa_ids
+            }
+        return location_info
+
     
     def _process_data(self):
         """Fetches, processes, and structures NSSP data into self.output_dict"""
@@ -51,6 +68,10 @@ class NSSPDataProcessor:
                 data[col] = pd.to_numeric(data[col], errors='raise')
         # cleanse NaN values
         data = data.replace(np.nan, value=None) # cleanse NaN values 
+        # --- patch for easier frontend display: build file with all counties for which there is data -- 
+        location_info_json = self._record_location_info(data)
+        self.output_dict["location_info.json"] = location_info_json
+        # -- . --
         logger.info("Success ✅")
         
         # Process the data 

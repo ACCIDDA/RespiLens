@@ -199,6 +199,14 @@ def main():
                 overwrite=True
             )
         logger.info("Success ✅")
+        # save the location info we need to save (for easier frontend processing w/ schematic map of states)
+        save_json_file(
+            pathogen="nssp",
+            output_path=args.output_path,
+            output_filename="location_info.json",
+            file_contents = NSSP_processor_object.output_dict["location_info.json"],
+            overwrite=True
+        )
     
     logger.info("Process complete.")
 
