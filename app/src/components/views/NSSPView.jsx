@@ -287,6 +287,13 @@ const NSSPView = ({ location, data, metadata }) => {
   const currentGroupLabel =
     selectedCounty?.groupLabel || data?.metadata?.location_name;
   const currentHsaId = selectedCounty?.hsaId || data?.metadata?.location;
+  const hasReachedCountyDetail =
+    !isUnitedStates && !isStatewide && currentStateCoverage.hasCountyData;
+  const detailHeading =
+    selectedCounty?.countyName ||
+    data?.metadata?.location_name ||
+    stateInfo?.name ||
+    "Selected county";
 
   const handleUnitedStatesStateClick = (feature) => {
     const nextStateAbbreviation = feature?.properties?.STUSAB;
@@ -424,13 +431,17 @@ const NSSPView = ({ location, data, metadata }) => {
             <Title order={4}>
               {isUnitedStates
                 ? "United States map"
-                : `${stateInfo?.name || stateAbbreviation} county map`}
+                : hasReachedCountyDetail
+                  ? `${getCountyDisplayLabel(detailHeading)} detail`
+                  : `${stateInfo?.name || stateAbbreviation} county map`}
             </Title>
           </Group>
           <Text size="sm" c="dimmed">
             {isUnitedStates
               ? "Click a state to open county data when available. States without NSSP data are grayed out."
-              : "Click a county to load its NSSP summary. Shared HSA groupings will lead to the same summary."}
+              : hasReachedCountyDetail
+                ? "County-level NSSP data selected. This area can now be used for the eventual visualization."
+                : "Click a county to load its NSSP summary. Shared HSA groupings will lead to the same summary."}
           </Text>
 
           {mapLoading ? (
@@ -456,6 +467,28 @@ const NSSPView = ({ location, data, metadata }) => {
               getFeatureLabel={(feature) => feature.properties?.NAME}
               getFeatureFill={getStateFill}
             />
+          ) : hasReachedCountyDetail ? (
+            <Paper
+              radius="md"
+              p="xl"
+              style={{
+                minHeight: 420,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background:
+                  "linear-gradient(180deg, rgba(36,91,219,0.06), rgba(36,91,219,0.02))",
+                border: "1px dashed var(--mantine-color-blue-4)",
+              }}
+            >
+              <Stack gap="xs" align="center">
+                <Text fw={600}>Plot Placeholder</Text>
+                <Text size="sm" c="dimmed" ta="center">
+                  This is where the county-level NSSP visualization will go for{" "}
+                  {getCountyDisplayLabel(detailHeading)}.
+                </Text>
+              </Stack>
+            </Paper>
           ) : currentStateCoverage.hasCountyData ? (
             <GeoMap
               featureCollection={stateMapData}
