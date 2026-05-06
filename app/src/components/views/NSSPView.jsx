@@ -154,7 +154,7 @@ const GeoMap = ({
 };
 
 const NSSPView = ({ location, data, metadata }) => {
-  const { handleLocationSelect } = useView();
+  const { handleLocationSelect, locationMessage } = useView();
   const [usMapData, setUsMapData] = useState(null);
   const [stateMapData, setStateMapData] = useState(null);
   const [countyAssignmentData, setCountyAssignmentData] = useState(null);
@@ -397,6 +397,16 @@ const NSSPView = ({ location, data, metadata }) => {
           data summary.
         </Text>
       </Stack>
+
+      {locationMessage ? (
+        <Alert
+          icon={<IconAlertTriangle size={16} />}
+          color="yellow"
+          variant="light"
+        >
+          {locationMessage}
+        </Alert>
+      ) : null}
 
       <Group gap="sm">
         {!isUnitedStates && (

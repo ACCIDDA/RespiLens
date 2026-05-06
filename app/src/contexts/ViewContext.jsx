@@ -5,6 +5,164 @@ import { useForecastData } from "../hooks/useForecastData";
 import { ViewContext } from "./ViewContextObject";
 import { APP_CONFIG } from "../config";
 
+const METRO_STATE_MAP = {
+  Colorado: "CO",
+  Georgia: "GA",
+  Indiana: "IN",
+  Maine: "ME",
+  Maryland: "MD",
+  Massachusetts: "MA",
+  Minnesota: "MN",
+  "South Carolina": "SC",
+  Texas: "TX",
+  Utah: "UT",
+  Virginia: "VA",
+  "North Carolina": "NC",
+  Oregon: "OR",
+};
+
+const METRO_STATE_ABBREVIATION_TO_LOCATION = Object.fromEntries(
+  Object.entries(METRO_STATE_MAP).map(([stateName, abbreviation]) => [
+    abbreviation,
+    stateName.toLowerCase().replace(/\s+/g, "-"),
+  ]),
+);
+
+const STATE_NAME_TO_ABBREVIATION = {
+  Alabama: "AL",
+  Alaska: "AK",
+  Arizona: "AZ",
+  Arkansas: "AR",
+  California: "CA",
+  Colorado: "CO",
+  Connecticut: "CT",
+  Delaware: "DE",
+  "District of Columbia": "DC",
+  Florida: "FL",
+  Georgia: "GA",
+  Hawaii: "HI",
+  Idaho: "ID",
+  Illinois: "IL",
+  Indiana: "IN",
+  Iowa: "IA",
+  Kansas: "KS",
+  Kentucky: "KY",
+  Louisiana: "LA",
+  Maine: "ME",
+  Maryland: "MD",
+  Massachusetts: "MA",
+  Michigan: "MI",
+  Minnesota: "MN",
+  Mississippi: "MS",
+  Missouri: "MO",
+  Montana: "MT",
+  Nebraska: "NE",
+  Nevada: "NV",
+  "New Hampshire": "NH",
+  "New Jersey": "NJ",
+  "New Mexico": "NM",
+  "New York": "NY",
+  "North Carolina": "NC",
+  "North Dakota": "ND",
+  Ohio: "OH",
+  Oklahoma: "OK",
+  Oregon: "OR",
+  Pennsylvania: "PA",
+  "Puerto Rico": "PR",
+  "Rhode Island": "RI",
+  "South Carolina": "SC",
+  "South Dakota": "SD",
+  Tennessee: "TN",
+  Texas: "TX",
+  Utah: "UT",
+  Vermont: "VT",
+  Virginia: "VA",
+  Washington: "WA",
+  "West Virginia": "WV",
+  Wisconsin: "WI",
+  Wyoming: "WY",
+};
+
+const STATE_ABBREVIATION_TO_NAME = Object.fromEntries(
+  Object.entries(STATE_NAME_TO_ABBREVIATION).map(([name, abbreviation]) => [
+    abbreviation,
+    name,
+  ]),
+);
+
+const NSSP_UNAVAILABLE_STATE_ABBREVIATIONS = new Set(["MO", "PR"]);
+
+const parseStateAbbreviationFromLocationName = (locationName = "") => {
+  const stateSuffixMatch = String(locationName).match(/,\s*([A-Z]{2})$/);
+  if (stateSuffixMatch) {
+    return stateSuffixMatch[1];
+  }
+
+  return STATE_NAME_TO_ABBREVIATION[locationName] || null;
+};
+
+const getStateAbbreviationForLocation = (location, data) => {
+  if (!location) {
+    return null;
+  }
+
+  if (location === "US" || location === "US_All") {
+    return "US";
+  }
+
+  if (location.includes("_")) {
+    return location.split("_")[0] || null;
+  }
+
+  if (/^[A-Z]{2}$/.test(location)) {
+    return location;
+  }
+
+  if (METRO_STATE_ABBREVIATION_TO_LOCATION[location]) {
+    return location;
+  }
+
+  return parseStateAbbreviationFromLocationName(data?.metadata?.location_name);
+};
+
+const getStandardLocationForView = (location, data) => {
+  const stateAbbreviation = getStateAbbreviationForLocation(location, data);
+  return stateAbbreviation && stateAbbreviation !== "US"
+    ? stateAbbreviation
+    : APP_CONFIG.defaultLocation;
+};
+
+const getMetroLocationForView = (location, data, defaultLocation) => {
+  const stateAbbreviation = getStateAbbreviationForLocation(location, data);
+  if (!stateAbbreviation || stateAbbreviation === "US") {
+    return defaultLocation;
+  }
+
+  return (
+    METRO_STATE_ABBREVIATION_TO_LOCATION[stateAbbreviation] || defaultLocation
+  );
+};
+
+const getNsspLocationForView = (location, data, defaultLocation) => {
+  const stateAbbreviation = getStateAbbreviationForLocation(location, data);
+
+  if (!stateAbbreviation || stateAbbreviation === "US") {
+    return { nextLocation: defaultLocation, locationMessage: null };
+  }
+
+  if (NSSP_UNAVAILABLE_STATE_ABBREVIATIONS.has(stateAbbreviation)) {
+    return {
+      nextLocation: defaultLocation,
+      locationMessage: `There is no NSSP data for ${STATE_ABBREVIATION_TO_NAME[stateAbbreviation] || stateAbbreviation}.`,
+    };
+  }
+
+  return {
+    nextLocation: `${stateAbbreviation}_All`,
+    locationMessage: null,
+  };
+};
+
 export const ViewProvider = ({ children }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -30,6 +188,7 @@ export const ViewProvider = ({ children }) => {
   const [selectedDates, setSelectedDates] = useState([]);
   const [activeDate, setActiveDate] = useState(null);
   const [selectedTarget, setSelectedTarget] = useState(null);
+  const [locationMessage, setLocationMessage] = useState(null);
   const [chartScale, setChartScale] = useState(
     () => urlManager.getAdvancedParams().chartScale,
   );
@@ -221,6 +380,7 @@ export const ViewProvider = ({ children }) => {
     const currentDataset = urlManager.getDatasetFromView(viewType);
     const effectiveDefault =
       currentDataset?.defaultLocation || APP_CONFIG.defaultLocation;
+    setLocationMessage(null);
     urlManager.updateLocation(newLocation, effectiveDefault);
     setSelectedLocation(newLocation);
   };
@@ -239,38 +399,37 @@ export const ViewProvider = ({ children }) => {
       const oldDataset = urlManager.getDatasetFromView(oldView);
       const newDataset = urlManager.getDatasetFromView(newView);
       const newSearchParams = new URLSearchParams(searchParams);
+      const effectiveDefault =
+        newDataset?.defaultLocation || APP_CONFIG.defaultLocation;
 
-      const isMovingToMetrocast = newView === "metrocast_forecasts";
-      const isMovingToNssp = newView === "nsspall";
+      let nextLocation = selectedLocation;
+      let nextLocationMessage = null;
 
-      if (isMovingToMetrocast) {
-        const needsCityDefault =
-          selectedLocation === APP_CONFIG.defaultLocation ||
-          selectedLocation.length === 2;
-
-        if (needsCityDefault && newDataset?.defaultLocation) {
-          setSelectedLocation(newDataset.defaultLocation);
-          newSearchParams.delete("location");
-        }
-      } else if (isMovingToNssp) {
-        if (selectedLocation === APP_CONFIG.defaultLocation) {
-          const nextLocation =
-            newDataset?.defaultLocation || `${APP_CONFIG.defaultLocation}_All`;
-          setSelectedLocation(nextLocation);
-          newSearchParams.delete("location");
-        } else if (selectedLocation.length === 2) {
-          const nextLocation = `${selectedLocation}_All`;
-          setSelectedLocation(nextLocation);
-          newSearchParams.set("location", nextLocation);
-        }
+      if (newView === "metrocast_forecasts") {
+        nextLocation = getMetroLocationForView(
+          selectedLocation,
+          data,
+          effectiveDefault,
+        );
+      } else if (newView === "nsspall") {
+        const nsspResolution = getNsspLocationForView(
+          selectedLocation,
+          data,
+          effectiveDefault,
+        );
+        nextLocation = nsspResolution.nextLocation;
+        nextLocationMessage = nsspResolution.locationMessage;
       } else {
-        if (
-          selectedLocation !== APP_CONFIG.defaultLocation &&
-          selectedLocation.length > 2
-        ) {
-          setSelectedLocation(APP_CONFIG.defaultLocation);
-          newSearchParams.delete("location");
-        }
+        nextLocation = getStandardLocationForView(selectedLocation, data);
+      }
+
+      setLocationMessage(nextLocationMessage);
+      setSelectedLocation(nextLocation);
+
+      if (nextLocation && nextLocation !== effectiveDefault) {
+        newSearchParams.set("location", nextLocation);
+      } else {
+        newSearchParams.delete("location");
       }
 
       if (
@@ -312,7 +471,14 @@ export const ViewProvider = ({ children }) => {
       // Push history for view changes so browser back works between forecast views.
       setSearchParams(newSearchParams, { replace: false });
     },
-    [viewType, searchParams, setSearchParams, urlManager, selectedLocation],
+    [
+      viewType,
+      searchParams,
+      setSearchParams,
+      urlManager,
+      selectedLocation,
+      data,
+    ],
   );
 
   useEffect(() => {
@@ -384,6 +550,7 @@ export const ViewProvider = ({ children }) => {
 
   const contextValue = {
     selectedLocation,
+    locationMessage,
     handleLocationSelect,
     data,
     metadata,
