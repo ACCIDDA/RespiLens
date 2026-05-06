@@ -3,7 +3,8 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import { URLParameterManager } from "../utils/urlManager";
 import { useForecastData } from "../hooks/useForecastData";
 import { ViewContext } from "./ViewContextObject";
-import { APP_CONFIG } from "../config";
+import { APP_CONFIG, DATASETS } from "../config";
+import { getDataPath } from "../utils/paths";
 
 const METRO_STATE_MAP = {
   Colorado: "CO",
@@ -28,7 +29,12 @@ const METRO_STATE_ABBREVIATION_TO_LOCATION = Object.fromEntries(
   ]),
 );
 
+const METRO_SUBAREA_TO_STATE_ABBREVIATION = {
+  nyc: "NY",
+};
+
 const STATE_NAME_TO_ABBREVIATION = {
+  "United States": "US",
   Alabama: "AL",
   Alaska: "AK",
   Arizona: "AZ",
@@ -90,8 +96,6 @@ const STATE_ABBREVIATION_TO_NAME = Object.fromEntries(
   ]),
 );
 
-const NSSP_UNAVAILABLE_STATE_ABBREVIATIONS = new Set(["MO", "PR"]);
-
 const parseStateAbbreviationFromLocationName = (locationName = "") => {
   const stateSuffixMatch = String(locationName).match(/,\s*([A-Z]{2})$/);
   if (stateSuffixMatch) {
@@ -101,7 +105,139 @@ const parseStateAbbreviationFromLocationName = (locationName = "") => {
   return STATE_NAME_TO_ABBREVIATION[locationName] || null;
 };
 
-const getStateAbbreviationForLocation = (location, data) => {
+const normalizeLocationEntry = (entry) => {
+  if (!entry) {
+    return null;
+  }
+
+  if (typeof entry === "string") {
+    return {
+      abbreviation: entry,
+      location_name: entry,
+    };
+  }
+
+  if (Array.isArray(entry)) {
+    const [locationName, abbreviation] = entry;
+    return {
+      abbreviation: abbreviation || locationName,
+      location_name: locationName || abbreviation,
+    };
+  }
+
+  if (typeof entry === "object") {
+    return {
+      ...entry,
+      abbreviation: entry.abbreviation || entry.location || entry.location_name,
+      location_name:
+        entry.location_name || entry.abbreviation || entry.location,
+    };
+  }
+
+  return null;
+};
+
+const buildStandardLocationCatalog = (metadata) => {
+  const exactLocations = new Set();
+  const parentStateByLocation = {};
+  const stateLocationByAbbreviation = {};
+
+  (metadata?.locations || [])
+    .map(normalizeLocationEntry)
+    .filter(Boolean)
+    .forEach((entry) => {
+      const locationId = entry.abbreviation;
+      const locationName = entry.location_name;
+      const parentStateAbbreviation =
+        locationId === "US"
+          ? "US"
+          : parseStateAbbreviationFromLocationName(locationName);
+
+      exactLocations.add(locationId);
+
+      if (parentStateAbbreviation) {
+        parentStateByLocation[locationId] = parentStateAbbreviation;
+      }
+
+      const isStateLevelLocation =
+        locationId === "US" ||
+        (!String(locationName).includes(",") &&
+          Boolean(parentStateAbbreviation));
+
+      if (isStateLevelLocation && parentStateAbbreviation) {
+        stateLocationByAbbreviation[parentStateAbbreviation] = locationId;
+      }
+    });
+
+  return {
+    exactLocations,
+    parentStateByLocation,
+    stateLocationByAbbreviation,
+  };
+};
+
+const buildMetroLocationCatalog = (metadata) => {
+  const exactLocations = new Set();
+  const parentStateByLocation = {};
+  const stateLocationByAbbreviation = {};
+
+  (metadata?.locations || [])
+    .map(normalizeLocationEntry)
+    .filter(Boolean)
+    .forEach((entry) => {
+      const locationId = entry.abbreviation;
+      const locationName = entry.location_name;
+      const parentStateAbbreviation =
+        METRO_SUBAREA_TO_STATE_ABBREVIATION[locationId] ||
+        METRO_STATE_MAP[locationName] ||
+        parseStateAbbreviationFromLocationName(locationName);
+
+      exactLocations.add(locationId);
+
+      if (parentStateAbbreviation) {
+        parentStateByLocation[locationId] = parentStateAbbreviation;
+      }
+
+      if (METRO_STATE_MAP[locationName] && parentStateAbbreviation) {
+        stateLocationByAbbreviation[parentStateAbbreviation] = locationId;
+      }
+    });
+
+  return {
+    exactLocations,
+    parentStateByLocation,
+    stateLocationByAbbreviation,
+  };
+};
+
+const buildNsspLocationCatalog = (metadata) => {
+  const exactLocations = new Set();
+  const parentStateByLocation = {};
+  const stateLocationByAbbreviation = {};
+
+  (metadata?.locations || []).forEach(([stateName, subLocation]) => {
+    const stateAbbreviation = STATE_NAME_TO_ABBREVIATION[stateName];
+    if (!stateAbbreviation) {
+      return;
+    }
+
+    const locationId = `${stateAbbreviation}_${subLocation}`;
+    exactLocations.add(locationId);
+    parentStateByLocation[locationId] = stateAbbreviation;
+
+    if (subLocation === "All") {
+      stateLocationByAbbreviation[stateAbbreviation] = locationId;
+    }
+  });
+
+  return {
+    exactLocations,
+    parentStateByLocation,
+    stateLocationByAbbreviation,
+  };
+};
+
+const getStateAbbreviationForLocation = (location, data, sourceCatalog) => {
   if (!location) {
     return null;
   }
@@ -118,6 +254,10 @@ const getStateAbbreviationForLocation = (location, data) => {
     return location;
   }
 
+  if (sourceCatalog?.parentStateByLocation?.[location]) {
+    return sourceCatalog.parentStateByLocation[location];
+  }
+
   if (METRO_STATE_ABBREVIATION_TO_LOCATION[location]) {
     return location;
   }
@@ -125,41 +265,74 @@ const getStateAbbreviationForLocation = (location, data) => {
   return parseStateAbbreviationFromLocationName(data?.metadata?.location_name);
 };
 
-const getStandardLocationForView = (location, data) => {
-  const stateAbbreviation = getStateAbbreviationForLocation(location, data);
-  return stateAbbreviation && stateAbbreviation !== "US"
-    ? stateAbbreviation
-    : APP_CONFIG.defaultLocation;
-};
-
-const getMetroLocationForView = (location, data, defaultLocation) => {
-  const stateAbbreviation = getStateAbbreviationForLocation(location, data);
-  if (!stateAbbreviation || stateAbbreviation === "US") {
-    return defaultLocation;
+const getHeuristicStateLocationForView = (viewType, stateAbbreviation) => {
+  if (!stateAbbreviation) {
+    return null;
   }
 
-  return (
-    METRO_STATE_ABBREVIATION_TO_LOCATION[stateAbbreviation] || defaultLocation
+  if (viewType === "metrocast_forecasts") {
+    return METRO_STATE_ABBREVIATION_TO_LOCATION[stateAbbreviation] || null;
+  }
+
+  if (viewType === "nsspall") {
+    return `${stateAbbreviation}_All`;
+  }
+
+  if (stateAbbreviation === "US") {
+    return "US";
+  }
+
+  return stateAbbreviation;
+};
+
+const resolveLocationForView = ({
+  nextView,
+  currentView,
+  currentLocation,
+  currentData,
+  destinationDefaultLocation,
+  locationCatalogs,
+}) => {
+  const destinationCatalog = locationCatalogs[nextView];
+  const sourceCatalog = locationCatalogs[currentView];
+
+  const parentStateAbbreviation = getStateAbbreviationForLocation(
+    currentLocation,
+    currentData,
+    sourceCatalog,
   );
-};
 
-const getNsspLocationForView = (location, data, defaultLocation) => {
-  const stateAbbreviation = getStateAbbreviationForLocation(location, data);
-
-  if (!stateAbbreviation || stateAbbreviation === "US") {
-    return { nextLocation: defaultLocation, locationMessage: null };
+  if (destinationCatalog?.exactLocations?.has(currentLocation)) {
+    return { nextLocation: currentLocation, locationMessage: null };
   }
 
-  if (NSSP_UNAVAILABLE_STATE_ABBREVIATIONS.has(stateAbbreviation)) {
-    return {
-      nextLocation: defaultLocation,
-      locationMessage: `There is no NSSP data for ${STATE_ABBREVIATION_TO_NAME[stateAbbreviation] || stateAbbreviation}.`,
-    };
+  const stateLevelLocation =
+    (parentStateAbbreviation &&
+      destinationCatalog?.stateLocationByAbbreviation?.[
+        parentStateAbbreviation
+      ]) ||
+    getHeuristicStateLocationForView(nextView, parentStateAbbreviation);
+
+  if (
+    stateLevelLocation &&
+    stateLevelLocation !== currentLocation &&
+    (destinationCatalog
+      ? destinationCatalog.exactLocations.has(stateLevelLocation)
+      : true)
+  ) {
+    return { nextLocation: stateLevelLocation, locationMessage: null };
   }
+
+  const locationMessage =
+    nextView === "nsspall" &&
+    parentStateAbbreviation &&
+    parentStateAbbreviation !== "US"
+      ? `There is no NSSP data for ${STATE_ABBREVIATION_TO_NAME[parentStateAbbreviation] || parentStateAbbreviation}.`
+      : null;
 
   return {
-    nextLocation: `${stateAbbreviation}_All`,
-    locationMessage: null,
+    nextLocation: destinationDefaultLocation,
+    locationMessage,
   };
 };
 
@@ -189,6 +362,7 @@ export const ViewProvider = ({ children }) => {
   const [activeDate, setActiveDate] = useState(null);
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [locationMessage, setLocationMessage] = useState(null);
+  const [locationCatalogs, setLocationCatalogs] = useState({});
   const [chartScale, setChartScale] = useState(
     () => urlManager.getAdvancedParams().chartScale,
   );
@@ -213,6 +387,64 @@ export const ViewProvider = ({ children }) => {
     availablePeakDates,
     availablePeakModels,
   } = useForecastData(selectedLocation, viewType);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadLocationCatalogs = async () => {
+      try {
+        const datasetEntries = await Promise.all(
+          Object.values(DATASETS).map(async (dataset) => {
+            if (!dataset?.dataPath) {
+              return null;
+            }
+
+            const response = await fetch(
+              getDataPath(`${dataset.dataPath}/metadata.json`),
+            );
+
+            if (!response.ok) {
+              throw new Error(
+                `Failed to fetch location metadata for ${dataset.shortName}: ${response.status}`,
+              );
+            }
+
+            const metadata = await response.json();
+            const catalog =
+              dataset.shortName === "nssp"
+                ? buildNsspLocationCatalog(metadata)
+                : dataset.shortName === "metrocast"
+                  ? buildMetroLocationCatalog(metadata)
+                  : buildStandardLocationCatalog(metadata);
+
+            return [dataset.shortName, catalog];
+          }),
+        );
+
+        if (!isActive) {
+          return;
+        }
+
+        const catalogsByView = {};
+        datasetEntries.filter(Boolean).forEach(([shortName, catalog]) => {
+          const dataset = DATASETS[shortName];
+          dataset?.views?.forEach((view) => {
+            catalogsByView[view.value] = catalog;
+          });
+        });
+
+        setLocationCatalogs(catalogsByView);
+      } catch (catalogError) {
+        console.error("Error loading location catalogs:", catalogError);
+      }
+    };
+
+    loadLocationCatalogs();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   // filter flu_peak dates based on current season
   const availableDatesToExpose = useMemo(() => {
@@ -401,27 +633,15 @@ export const ViewProvider = ({ children }) => {
       const newSearchParams = new URLSearchParams(searchParams);
       const effectiveDefault =
         newDataset?.defaultLocation || APP_CONFIG.defaultLocation;
-
-      let nextLocation = selectedLocation;
-      let nextLocationMessage = null;
-
-      if (newView === "metrocast_forecasts") {
-        nextLocation = getMetroLocationForView(
-          selectedLocation,
-          data,
-          effectiveDefault,
-        );
-      } else if (newView === "nsspall") {
-        const nsspResolution = getNsspLocationForView(
-          selectedLocation,
-          data,
-          effectiveDefault,
-        );
-        nextLocation = nsspResolution.nextLocation;
-        nextLocationMessage = nsspResolution.locationMessage;
-      } else {
-        nextLocation = getStandardLocationForView(selectedLocation, data);
-      }
+      const { nextLocation, locationMessage: nextLocationMessage } =
+        resolveLocationForView({
+          nextView: newView,
+          currentView: oldView,
+          currentLocation: selectedLocation,
+          currentData: data,
+          destinationDefaultLocation: effectiveDefault,
+          locationCatalogs,
+        });
 
       setLocationMessage(nextLocationMessage);
       setSelectedLocation(nextLocation);
@@ -478,8 +698,59 @@ export const ViewProvider = ({ children }) => {
       urlManager,
       selectedLocation,
       data,
+      locationCatalogs,
     ],
   );
+
+  useEffect(() => {
+    if (!isForecastPage) {
+      return;
+    }
+
+    const currentDataset = urlManager.getDatasetFromView(viewType);
+    if (!currentDataset) {
+      return;
+    }
+
+    const effectiveDefault =
+      currentDataset.defaultLocation || APP_CONFIG.defaultLocation;
+    const resolution = resolveLocationForView({
+      nextView: viewType,
+      currentView: viewType,
+      currentLocation: selectedLocation,
+      currentData: data,
+      destinationDefaultLocation: effectiveDefault,
+      locationCatalogs,
+    });
+
+    const shouldPreserveExistingNsspMessage =
+      viewType === "nsspall" &&
+      Boolean(locationMessage) &&
+      resolution.nextLocation === selectedLocation &&
+      resolution.locationMessage === null;
+
+    if (
+      !shouldPreserveExistingNsspMessage &&
+      resolution.locationMessage !== locationMessage
+    ) {
+      setLocationMessage(resolution.locationMessage);
+    }
+
+    if (resolution.nextLocation === selectedLocation) {
+      return;
+    }
+
+    setSelectedLocation(resolution.nextLocation);
+    urlManager.updateLocation(resolution.nextLocation, effectiveDefault);
+  }, [
+    isForecastPage,
+    viewType,
+    selectedLocation,
+    data,
+    locationCatalogs,
+    locationMessage,
+    urlManager,
+  ]);
 
   useEffect(() => {
     const viewFromUrl = urlManager.getView();
