@@ -59,7 +59,7 @@ export const TOURNAMENT_REGISTRY = [
   {
     id: "emily-tournament",
     enabled: true,
-    path: "/emily_tournament",
+    path: "/emily-tournament",
     navLabel: "EmilyTournament",
     storageKeyPrefix: "emilytesttournament",
     name: "Toy tournament created by Emily",
