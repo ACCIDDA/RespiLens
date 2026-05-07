@@ -57,6 +57,74 @@ const DEFAULT_TOURNAMENT_SETTINGS = {
 
 export const TOURNAMENT_REGISTRY = [
   {
+    id: "emily-tournament",
+    enabled: true,
+    path: "/emily-tournament",
+    navLabel: "EmilyTournament",
+    storageKeyPrefix: "emilytesttournament",
+    name: "Toy tournament created by Emily",
+    description:
+      "Compete in 3 epidemic forecasting challenges and climb the leaderboard",
+    // changed this in app/.env (add your constant)
+    apiUrl:
+      import.meta.env.VITE_EMILY_TOURNAMENT_API_URL ||
+      "https://script.google.com/macros/s/AKfycby_pE9-KoA_bWjv9xIzNC1DF8jIrMPbQJ3I9P62RafivdQaHujnX2539tYFZtrn-nGRpw/exec",
+    sheetId: "1-WMVKajvdkxRpNM7NwYaRYyVK1JdP7jbfV6JooLfguo",
+    challenges: [
+      {
+        id: "ch-1",
+        enabled: true,
+        number: 1,
+        title: "California Influenza Forecast",
+        description:
+          "Predict California flu hospitalizations for 1, 2, and 3 weeks ahead",
+        dataset: "flu",
+        datasetKey: "flusight",
+        dataPath: "flusight",
+        fileSuffix: "flu.json",
+        location: "CA",
+        displayName: "California",
+        target: "wk inc flu hosp",
+        horizons: [1, 2, 3],
+        forecastDate: "2023-11-18",
+      },
+      {
+        id: "ch-2",
+        enabled: true,
+        number: 2,
+        title: "Nebraska Influenza Forecast",
+        description:
+          "Predict Nebraska flu hospitalizations for 1, 2, and 3 weeks ahead",
+        dataset: "flu",
+        datasetKey: "flusight",
+        dataPath: "flusight",
+        fileSuffix: "flu.json",
+        location: "NE",
+        displayName: "Nebraska",
+        target: "wk inc flu hosp",
+        horizons: [1, 2, 3],
+        forecastDate: "2025-01-18",
+      },
+      {
+        id: "ch-3",
+        enabled: true,
+        number: 3,
+        title: "North Carolina COVID-19 Forecast",
+        description:
+          "Predict North Carolina COVID hospitalizations for 1, 2, and 3 weeks ahead",
+        dataset: "covid",
+        datasetKey: "covid19",
+        dataPath: "covid19forecasthub",
+        fileSuffix: "covid19.json",
+        location: "NC",
+        displayName: "North Carolina",
+        target: "wk inc covid hosp",
+        horizons: [1, 2, 3],
+        forecastDate: "2025-09-13",
+      },
+    ],
+  },
+  {
     id: "epidemics-10",
     enabled: true,
     path: "/epidemics10",
@@ -67,7 +135,6 @@ export const TOURNAMENT_REGISTRY = [
       "Compete in 3 epidemic forecasting challenges and climb the leaderboard",
     apiUrl:
       import.meta.env.VITE_EPIDEMICS10_TOURNAMENT_API_URL ||
-      import.meta.env.VITE_TOURNAMENT_API_URL ||
       "https://script.google.com/macros/s/AKfycbwB7LnE8DSk9S7ACLs20j65iB-9ryCXAiih2FlMwpeWDDE4pLZ1zF3RQilfrm6_byLU7w/exec",
     sheetId: "17J5KWUrVuqmqqBcVJg2A-dfVdrL4LjXTvlztCDpS0g0",
     challenges: [
@@ -174,7 +241,7 @@ export const TOURNAMENT_CONFIG =
   normalizeTournament({
     id: "none",
     enabled: false,
-    path: "/epidemics10",
+    path: "/emily_tournament",
     navLabel: "Tournament",
     name: "Tournament",
     description: "",
