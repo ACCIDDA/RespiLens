@@ -65,8 +65,7 @@ export const TOURNAMENT_REGISTRY = [
     name: "Toy tournament created by Emily",
     description:
       "Compete in 3 epidemic forecasting challenges and climb the leaderboard",
-    // apiUrl: "https://script.google.com/macros/s/AKfycby_pE9-KoA_bWjv9xIzNC1DF8jIrMPbQJ3I9P62RafivdQaHujnX2539tYFZtrn-nGRpw/exec" <- could use this?
-    // changed it iin app/.env
+    // changed this in app/.env (add your constant)
     apiUrl:
       import.meta.env.VITE_EMILY_TOURNAMENT_API_URL ||
       "https://script.google.com/macros/s/AKfycby_pE9-KoA_bWjv9xIzNC1DF8jIrMPbQJ3I9P62RafivdQaHujnX2539tYFZtrn-nGRpw/exec",
@@ -87,14 +86,12 @@ export const TOURNAMENT_REGISTRY = [
         displayName: "California",
         target: "wk inc flu hosp",
         horizons: [1, 2, 3],
-        // forecastDate: "2023-11-11",
         forecastDate: "2023-11-18",
       },
       {
         id: "ch-2",
         enabled: true,
         number: 2,
-        // was for Colorado, changed to NE
         title: "Nebraska Influenza Forecast",
         description:
           "Predict Nebraska flu hospitalizations for 1, 2, and 3 weeks ahead",
