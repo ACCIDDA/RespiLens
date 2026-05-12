@@ -20,11 +20,7 @@ const NSSPColumnSelector = ({
     <Stack gap="sm">
       <div>
         <Text size="sm" fw={700}>
-          NSSP series
-        </Text>
-        <Text size="sm" c="dimmed">
-          Toggle the syndrome percent-visit series shown for this county
-          grouping.
+          Select a pathogen(s)
         </Text>
       </div>
 

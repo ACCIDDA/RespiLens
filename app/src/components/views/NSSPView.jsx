@@ -2,23 +2,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Alert,
-  Badge,
   Button,
   Center,
   Group,
   Loader,
   Paper,
-  SimpleGrid,
   Stack,
   Text,
   Title,
   useMantineColorScheme,
 } from "@mantine/core";
-import { IconAlertTriangle, IconArrowLeft, IconMap } from "@tabler/icons-react";
+import { IconAlertTriangle, IconArrowLeft } from "@tabler/icons-react";
 import { geoAlbersUsa, geoMercator, geoPath } from "d3-geo";
 import Plot from "react-plotly.js";
 import Plotly from "plotly.js/dist/plotly";
 import NSSPColumnSelector from "../NSSPColumnSelector";
+import TitleRow from "../TitleRow";
 import { MODEL_COLORS } from "../../config/datasets";
 import { useView } from "../../hooks/useView";
 import { buildPlotDownloadName } from "../../utils/plotDownloadName";
@@ -58,40 +57,6 @@ const NSSP_COLUMN_LABELS = {
 };
 
 const NSSP_DEFAULT_COLUMNS = Object.keys(NSSP_COLUMN_LABELS);
-
-const formatPercentValue = (value) => {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "N/A";
-  }
-
-  return `${Number(value).toLocaleString(undefined, {
-    maximumFractionDigits: 2,
-  })}%`;
-};
-
-const summarizeData = (location, data, metadata, countySelection) => {
-  const series = data?.series;
-  const dates = series?.dates || [];
-  const metricNames = Object.keys(series || {}).filter(
-    (key) => key !== "dates",
-  );
-  const latestDate = dates.length > 0 ? dates[dates.length - 1] : null;
-
-  return {
-    locationName:
-      countySelection?.countyName || data?.metadata?.location_name || location,
-    datasetName: metadata?.dataset || data?.metadata?.dataset || "NSSP",
-    lastUpdated: metadata?.last_updated || "Unknown",
-    dateCount: dates.length,
-    firstDate: dates[0] || "N/A",
-    latestDate: latestDate || "N/A",
-    metricCount: metricNames.length,
-    latestMetrics: metricNames.map((metricName) => ({
-      metricName,
-      latestValue: series?.[metricName]?.[dates.length - 1] ?? null,
-    })),
-  };
-};
 
 const GeoMap = ({
   featureCollection,
@@ -189,7 +154,6 @@ const NSSPView = ({ location, data, metadata }) => {
 
   const hasInteractedRef = useRef(false);
   const isResettingRef = useRef(false);
-  const plotRef = useRef(null);
 
   const stateAbbreviation = getNsspStateAbbreviationFromLocation(location);
   const stateInfo = NSSP_STATE_ABBREVIATION_TO_INFO[stateAbbreviation];
@@ -512,14 +476,6 @@ const NSSPView = ({ location, data, metadata }) => {
     [xAxisRange],
   );
 
-  const summary = useMemo(
-    () => summarizeData(location, data, metadata, selectedCounty),
-    [location, data, metadata, selectedCounty],
-  );
-
-  const currentGroupLabel =
-    selectedCounty?.groupLabel || data?.metadata?.location_name;
-  const currentHsaId = selectedCounty?.hsaId || data?.metadata?.location;
   const hasReachedCountyDetail =
     !isUnitedStates && !isStatewide && currentStateCoverage.hasCountyData;
   const detailHeading =
@@ -527,6 +483,7 @@ const NSSPView = ({ location, data, metadata }) => {
     data?.metadata?.location_name ||
     stateInfo?.name ||
     "Selected county";
+  const countyPlotTitle = `${getCountyDisplayLabel(detailHeading)} — NSSP`;
 
   const handleUnitedStatesStateClick = (feature) => {
     const nextStateAbbreviation = feature?.properties?.STUSAB;
@@ -680,11 +637,6 @@ const NSSPView = ({ location, data, metadata }) => {
       font: {
         color: colorScheme === "dark" ? "#c1c2c5" : "#000000",
       },
-      title: {
-        text: `${detailHeading} NSSP Percent of Visits`,
-        x: 0,
-        xanchor: "left",
-      },
       xaxis: {
         title: "Date",
         rangeslider: {
@@ -755,7 +707,6 @@ const NSSPView = ({ location, data, metadata }) => {
       chartScale,
       colorScheme,
       defaultRange,
-      detailHeading,
       fullRange,
       plotRevision,
       selectedColumns.length,
@@ -835,14 +786,7 @@ const NSSPView = ({ location, data, metadata }) => {
 
   return (
     <Stack gap="lg">
-      <Stack gap={4}>
-        <Title order={2}>NSSP Surveillance Data</Title>
-        <Text c="dimmed">
-          Explore the nationwide view, then drill into a state and click a
-          county. Counties that share the same HSA grouping will open the same
-          plotted view.
-        </Text>
-      </Stack>
+      <Title order={2}>NSSP Surveillance Data</Title>
 
       {locationMessage ? (
         <Alert
@@ -880,184 +824,92 @@ const NSSPView = ({ location, data, metadata }) => {
         )}
       </Group>
 
-      <Paper withBorder radius="md" p="lg">
-        <Stack gap="md">
-          <Group gap="sm" align="center">
-            <IconMap size={18} />
+      {hasReachedCountyDetail ? (
+        <Stack gap="md" w="100%">
+          <TitleRow
+            title={countyPlotTitle}
+            timestamp={metadata?.last_updated}
+          />
+          <Text size="sm" c="dimmed" ta="center">
+            County selections resolve to their shared HSA grouping when
+            applicable.
+          </Text>
+          <div
+            style={{
+              width: "100%",
+              height: "min(700px, 65vh)",
+              minHeight: 360,
+            }}
+          >
+            <Plot
+              useResizeHandler
+              data={plotTraces}
+              layout={plotLayout}
+              config={plotConfig}
+              style={{ width: "100%", height: "100%" }}
+              revision={dataRevision}
+              onRelayout={handleRelayout}
+            />
+          </div>
+
+          <NSSPColumnSelector
+            availableColumns={availableColumns}
+            selectedColumns={selectedColumns}
+            setSelectedColumns={handleSetSelectedColumns}
+            columnLabelMap={NSSP_COLUMN_LABELS}
+          />
+        </Stack>
+      ) : (
+        <Paper withBorder radius="md" p="lg">
+          <Stack gap="md">
             <Title order={4}>
               {isUnitedStates
                 ? "United States map"
-                : hasReachedCountyDetail
-                  ? `${getCountyDisplayLabel(detailHeading)} detail`
-                  : `${stateInfo?.name || stateAbbreviation} county map`}
+                : `${stateInfo?.name || stateAbbreviation} county map`}
             </Title>
-          </Group>
-          <Text size="sm" c="dimmed">
-            {isUnitedStates
-              ? "Click a state to open county data when available. States without NSSP data are grayed out."
-              : hasReachedCountyDetail
-                ? "County-level NSSP data selected. The chart below reflects the county's HSA grouping."
-                : "Click a county to load its NSSP time series. Shared HSA groupings will lead to the same plot."}
-          </Text>
 
-          {mapLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          ) : mapError ? (
-            <Alert
-              color="red"
-              variant="light"
-              icon={<IconAlertTriangle size={16} />}
-            >
-              {mapError}
-            </Alert>
-          ) : isUnitedStates ? (
-            <GeoMap
-              featureCollection={usMapData}
-              height={US_MAP_HEIGHT}
-              projectionKind="usa"
-              onFeatureClick={handleUnitedStatesStateClick}
-              isFeatureClickable={isStateClickable}
-              getFeatureKey={(feature) => feature.properties?.GEOID}
-              getFeatureLabel={(feature) => feature.properties?.NAME}
-              getFeatureFill={getStateFill}
-            />
-          ) : hasReachedCountyDetail ? (
-            <Stack gap="md">
-              <Paper
-                radius="md"
-                p="md"
-                style={{
-                  background:
-                    "linear-gradient(180deg, rgba(36,91,219,0.05), rgba(36,91,219,0.01))",
-                  border: "1px solid var(--mantine-color-blue-2)",
-                }}
+            {mapLoading ? (
+              <Center py="xl">
+                <Loader />
+              </Center>
+            ) : mapError ? (
+              <Alert
+                color="red"
+                variant="light"
+                icon={<IconAlertTriangle size={16} />}
               >
-                <div
-                  style={{
-                    width: "100%",
-                    height: "min(720px, 65vh)",
-                    minHeight: 380,
-                  }}
-                >
-                  <Plot
-                    ref={plotRef}
-                    useResizeHandler
-                    data={plotTraces}
-                    layout={plotLayout}
-                    config={plotConfig}
-                    style={{ width: "100%", height: "100%" }}
-                    revision={dataRevision}
-                    onRelayout={handleRelayout}
-                  />
-                </div>
-              </Paper>
-
-              <Paper withBorder radius="md" p="lg">
-                <NSSPColumnSelector
-                  availableColumns={availableColumns}
-                  selectedColumns={selectedColumns}
-                  setSelectedColumns={handleSetSelectedColumns}
-                  columnLabelMap={NSSP_COLUMN_LABELS}
-                />
-              </Paper>
-            </Stack>
-          ) : currentStateCoverage.hasCountyData ? (
-            <GeoMap
-              featureCollection={stateMapData}
-              height={STATE_MAP_HEIGHT}
-              projectionKind="state"
-              onFeatureClick={handleCountyClick}
-              isFeatureClickable={isCountyClickable}
-              getFeatureKey={(feature) => feature.properties?.GEOID}
-              getFeatureLabel={(feature) => feature.properties?.NAME}
-              getFeatureFill={getCountyFill}
-            />
-          ) : (
-            <Alert color="blue" variant="light">
-              County-level NSSP data is not available for {stateInfo?.name}.
-              Showing the statewide summary below.
-            </Alert>
-          )}
-        </Stack>
-      </Paper>
-
-      {!isUnitedStates && (
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
-          <Paper withBorder radius="md" p="md">
-            <Text size="sm" c="dimmed">
-              Dataset
-            </Text>
-            <Text fw={600}>{summary.datasetName}</Text>
-          </Paper>
-          <Paper withBorder radius="md" p="md">
-            <Text size="sm" c="dimmed">
-              State
-            </Text>
-            <Text fw={600}>{stateInfo?.name || stateAbbreviation}</Text>
-          </Paper>
-          <Paper withBorder radius="md" p="md">
-            <Text size="sm" c="dimmed">
-              Date range
-            </Text>
-            <Text fw={600}>
-              {summary.firstDate} to {summary.latestDate}
-            </Text>
-          </Paper>
-          <Paper withBorder radius="md" p="md">
-            <Text size="sm" c="dimmed">
-              Observations
-            </Text>
-            <Text fw={600}>{summary.dateCount}</Text>
-          </Paper>
-        </SimpleGrid>
-      )}
-
-      {!isUnitedStates &&
-        (!isStatewide || !currentStateCoverage.hasCountyData) && (
-          <Paper withBorder radius="md" p="lg">
-            <Stack gap="md">
-              <Group justify="space-between" align="flex-start">
-                <div>
-                  <Title order={4}>
-                    {selectedCounty
-                      ? getCountyDisplayLabel(selectedCounty.countyName)
-                      : "Selected HSA summary"}
-                  </Title>
-                  <Text size="sm" c="dimmed">
-                    Last updated: {summary.lastUpdated}
-                  </Text>
-                </div>
-                <Badge variant="light">
-                  {currentHsaId === "All"
-                    ? "Statewide data"
-                    : `HSA ${currentHsaId}`}
-                </Badge>
-              </Group>
-
-              <Alert color="blue" variant="light">
-                <Text size="sm">Data source grouping: {currentGroupLabel}</Text>
+                {mapError}
               </Alert>
-
-              <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-                {summary.latestMetrics.map(({ metricName, latestValue }) => (
-                  <Paper key={metricName} withBorder radius="md" p="md">
-                    <Text size="sm" c="dimmed">
-                      {NSSP_COLUMN_LABELS[metricName] || metricName}
-                    </Text>
-                    <Text fw={700} size="lg">
-                      {formatPercentValue(latestValue)}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Latest date: {summary.latestDate}
-                    </Text>
-                  </Paper>
-                ))}
-              </SimpleGrid>
-            </Stack>
-          </Paper>
-        )}
+            ) : isUnitedStates ? (
+              <GeoMap
+                featureCollection={usMapData}
+                height={US_MAP_HEIGHT}
+                projectionKind="usa"
+                onFeatureClick={handleUnitedStatesStateClick}
+                isFeatureClickable={isStateClickable}
+                getFeatureKey={(feature) => feature.properties?.GEOID}
+                getFeatureLabel={(feature) => feature.properties?.NAME}
+                getFeatureFill={getStateFill}
+              />
+            ) : currentStateCoverage.hasCountyData ? (
+              <GeoMap
+                featureCollection={stateMapData}
+                height={STATE_MAP_HEIGHT}
+                projectionKind="state"
+                onFeatureClick={handleCountyClick}
+                isFeatureClickable={isCountyClickable}
+                getFeatureKey={(feature) => feature.properties?.GEOID}
+                getFeatureLabel={(feature) => feature.properties?.NAME}
+                getFeatureFill={getCountyFill}
+              />
+            ) : (
+              <Alert color="red" variant="light">
+                County-level NSSP data is not available for {stateInfo?.name}.
+              </Alert>
+            )}
+          </Stack>
+        </Paper>
+      )}
     </Stack>
   );
 };
