@@ -217,6 +217,22 @@ const normalizeTournament = (tournament) => {
   return {
     ...DEFAULT_TOURNAMENT_SETTINGS,
     ...tournament,
+    scoring: {
+      ...DEFAULT_TOURNAMENT_SETTINGS.scoring,
+      ...(tournament.scoring || {}),
+    },
+    leaderboard: {
+      ...DEFAULT_TOURNAMENT_SETTINGS.leaderboard,
+      ...(tournament.leaderboard || {}),
+    },
+    ui: {
+      ...DEFAULT_TOURNAMENT_SETTINGS.ui,
+      ...(tournament.ui || {}),
+    },
+    features: {
+      ...DEFAULT_TOURNAMENT_SETTINGS.features,
+      ...(tournament.features || {}),
+    },
     path: tournament.path || `/${tournament.id}`,
     navLabel: tournament.navLabel || tournament.name,
     storageKeys: {

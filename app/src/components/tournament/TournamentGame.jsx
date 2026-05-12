@@ -594,6 +594,9 @@ const TournamentGame = ({
                         height={380}
                         showIntervals={inputMode === "intervals"}
                         zoomedView={zoomedView}
+                        dateLabelFormatter={(date) =>
+                          getMaskedForecastDate(date, tournamentConfig)
+                        }
                       />
                     </Box>
 

@@ -476,6 +476,9 @@ const TournamentChallengeCard = ({
                   height={400}
                   showIntervals={inputMode === "intervals"}
                   zoomedView={zoomedView}
+                  dateLabelFormatter={(date) =>
+                    getMaskedForecastDate(date, tournamentConfig)
+                  }
                 />
               </Box>
 
