@@ -15,6 +15,12 @@ import useQuantileForecastTraces from "../../hooks/useQuantileForecastTraces";
 import { MODEL_COLORS } from "../../config/datasets";
 import { nhsnSlugToNameMap, targetDisplayNameMap } from "../../utils/mapUtils";
 
+const NSSP_COLUMN_LABELS = {
+  percent_visits_covid: "COVID-19",
+  percent_visits_influenza: "Influenza",
+  percent_visits_rsv: "RSV",
+};
+
 const MiniPlot = ({ plot }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +28,8 @@ const MiniPlot = ({ plot }) => {
   const { colorScheme } = useMantineColorScheme();
 
   const isNHSN = plot.viewType === "nhsnall";
+  const isNSSP = plot.viewType === "nsspall";
+  const isSeriesView = isNHSN || isNSSP;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,8 +50,8 @@ const MiniPlot = ({ plot }) => {
   }, [plot.fullDataPath]);
 
   const { traces: forecastTraces } = useQuantileForecastTraces({
-    groundTruth: isNHSN ? null : data?.ground_truth,
-    forecasts: isNHSN ? null : data?.forecasts,
+    groundTruth: isSeriesView ? null : data?.ground_truth,
+    forecasts: isSeriesView ? null : data?.forecasts,
     selectedDates: plot.settings.dates || [],
     selectedModels: plot.settings.models || [],
     target: plot.settings.target,
@@ -84,24 +92,69 @@ const MiniPlot = ({ plot }) => {
       .filter((trace) => trace.y.length > 0);
   }, [isNHSN, data, plot.settings]);
 
-  const finalTraces = isNHSN ? nhsnTraces : forecastTraces;
+  const nsspTraces = useMemo(() => {
+    if (!isNSSP || !data?.series) return [];
+
+    const dateAxis = data.series.dates || [];
+    const applySqrt = plot.settings.scale === "sqrt";
+
+    return (plot.settings.columns || [])
+      .map((column, index) => {
+        const rawY = data.series[column] || [];
+        const yValues = applySqrt
+          ? rawY.map((value) =>
+              value !== null ? Math.sqrt(Math.max(0, value)) : value,
+            )
+          : rawY;
+
+        return {
+          x: dateAxis,
+          y: yValues,
+          name: NSSP_COLUMN_LABELS[column] || column,
+          type: "scatter",
+          mode: "lines+markers",
+          line: {
+            color: MODEL_COLORS[index % MODEL_COLORS.length],
+            width: 2,
+          },
+          marker: { size: 4 },
+          customdata: rawY,
+          hovertemplate:
+            "%{x}<br>%{fullData.name}: %{customdata:.2f}%<extra></extra>",
+        };
+      })
+      .filter((trace) => trace.y.length > 0);
+  }, [isNSSP, data, plot.settings]);
+
+  let finalTraces = forecastTraces;
+  if (isNHSN) {
+    finalTraces = nhsnTraces;
+  } else if (isNSSP) {
+    finalTraces = nsspTraces;
+  }
 
   const layout = useMemo(() => {
     let xRange = undefined;
     let yRange = undefined;
 
     if (data) {
-      if (isNHSN && data.series?.dates?.length > 0) {
+      if (isSeriesView && data.series?.dates?.length > 0) {
         const lastDate = new Date(
           data.series.dates[data.series.dates.length - 1],
         );
         const startDate = new Date(lastDate);
-        startDate.setMonth(startDate.getMonth() - 3);
+        startDate.setMonth(startDate.getMonth() - (isNSSP ? 6 : 3));
+        const endDate = new Date(lastDate);
+        if (isNSSP) {
+          endDate.setDate(endDate.getDate() + 14);
+        }
         xRange = [
           startDate.toISOString().split("T")[0],
-          data.series.dates[data.series.dates.length - 1],
+          isNSSP
+            ? endDate.toISOString().split("T")[0]
+            : data.series.dates[data.series.dates.length - 1],
         ];
-      } else if (!isNHSN && plot.settings.dates?.length > 0) {
+      } else if (!isSeriesView && plot.settings.dates?.length > 0) {
         const sortedDates = [...plot.settings.dates].sort();
         const earliestDate = new Date(sortedDates[0]);
         const latestDate = new Date(sortedDates[sortedDates.length - 1]);
@@ -135,6 +188,13 @@ const MiniPlot = ({ plot }) => {
       }
     }
 
+    const usesPercentSuffix =
+      isNSSP ||
+      plot.settings.target?.includes("%") ||
+      plot.settings.target?.includes("pct") ||
+      plot.settings.target?.includes("Percent") ||
+      plot.settings.target?.includes("percent");
+
     return {
       autosize: true,
       height: 230,
@@ -158,32 +218,54 @@ const MiniPlot = ({ plot }) => {
         type: plot.settings.scale === "log" ? "log" : "linear",
         range: plot.settings.scale === "log" ? undefined : yRange,
         nticks: 5,
-        ticksuffix:
-          plot.settings.target?.includes("%") ||
-          plot.settings.target?.includes("pct") ||
-          plot.settings.target?.includes("Percent") ||
-          plot.settings.target?.includes("percent")
-            ? "%"
-            : "",
+        ticksuffix: usesPercentSuffix ? "%" : "",
       },
-      shapes: !isNHSN
-        ? (plot.settings.dates || []).map((date) => ({
-            type: "line",
-            x0: date,
-            x1: date,
-            y0: 0,
-            y1: 1,
-            yref: "paper",
-            line: { color: "red", width: 1, dash: "dash" },
-          }))
-        : [],
+      shapes:
+        !isNHSN && !isNSSP
+          ? (plot.settings.dates || []).map((date) => ({
+              type: "line",
+              x0: date,
+              x1: date,
+              y0: 0,
+              y1: 1,
+              yref: "paper",
+              line: { color: "red", width: 1, dash: "dash" },
+            }))
+          : [],
     };
-  }, [colorScheme, plot.settings, isNHSN, data, finalTraces]);
+  }, [
+    colorScheme,
+    plot.settings,
+    isNHSN,
+    isNSSP,
+    isSeriesView,
+    data,
+    finalTraces,
+  ]);
 
   // Helper for hover label content
   const tooltipContent = useMemo(() => {
     const resolvedTarget =
       targetDisplayNameMap[plot.settings.target] || plot.settings.target;
+    let detailBadges = plot.settings.dates?.map((date) => (
+      <Badge key={date} size="xs" variant="outline" color="blue.3">
+        {date}
+      </Badge>
+    ));
+
+    if (isNHSN) {
+      detailBadges = plot.settings.columns?.map((slug) => (
+        <Badge key={slug} size="xs" variant="outline" color="blue.3">
+          {nhsnSlugToNameMap[slug] || slug}
+        </Badge>
+      ));
+    } else if (isNSSP) {
+      detailBadges = plot.settings.columns?.map((column) => (
+        <Badge key={column} size="xs" variant="outline" color="blue.3">
+          {NSSP_COLUMN_LABELS[column] || column}
+        </Badge>
+      ));
+    }
 
     return (
       <Stack gap={8} p={5}>
@@ -217,24 +299,12 @@ const MiniPlot = ({ plot }) => {
 
         <Stack gap={4}>
           <Text size="xs" fw={700}>
-            {isNHSN ? "COLUMNS:" : "DATES:"}
+            {isNHSN || isNSSP ? "COLUMNS:" : "DATES:"}
           </Text>
-          <Group gap={4}>
-            {isNHSN
-              ? plot.settings.columns?.map((slug) => (
-                  <Badge key={slug} size="xs" variant="outline" color="blue.3">
-                    {nhsnSlugToNameMap[slug] || slug}
-                  </Badge>
-                ))
-              : plot.settings.dates?.map((date) => (
-                  <Badge key={date} size="xs" variant="outline" color="blue.3">
-                    {date}
-                  </Badge>
-                ))}
-          </Group>
+          <Group gap={4}>{detailBadges}</Group>
         </Stack>
 
-        {!isNHSN && (
+        {!isNHSN && !isNSSP && (
           <Stack gap={4}>
             <Text size="xs" fw={700}>
               MODELS:
@@ -250,7 +320,7 @@ const MiniPlot = ({ plot }) => {
         )}
       </Stack>
     );
-  }, [plot.settings, isNHSN]);
+  }, [plot.settings, isNHSN, isNSSP]);
 
   if (loading)
     return (
