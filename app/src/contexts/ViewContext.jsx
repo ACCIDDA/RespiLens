@@ -680,6 +680,9 @@ export const ViewProvider = ({ children }) => {
           newSearchParams.delete("nhsn_target");
           newSearchParams.delete("nhsn_cols");
         }
+        if (oldDataset?.shortName === "nssp") {
+          newSearchParams.delete("nssp_cols");
+        }
       } else {
         if (newDataset) {
           newSearchParams.delete(`${newDataset.prefix}_target`);
