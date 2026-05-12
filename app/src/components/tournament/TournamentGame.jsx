@@ -28,7 +28,11 @@ import {
   convertToIntervals,
 } from "../../utils/forecastleInputs";
 import { validateForecastSubmission } from "../../utils/forecastleValidation";
-import { TOURNAMENT_CONFIG } from "../../config";
+import {
+  TOURNAMENT_CONFIG,
+  getChallengeDatasetLabel,
+  getMaskedForecastDate,
+} from "../../config";
 import {
   scoreUserForecast,
   scoreModels,
@@ -56,6 +60,24 @@ const getSubmissionForecasts = (submissions, challenge) => {
   return submissions[challenge.id] || submissions[challenge.number] || null;
 };
 
+const restoreForecastEntries = (forecasts) =>
+  forecasts.map((forecast) => ({
+    horizon: forecast.horizon,
+    median: forecast.median,
+    lower50: forecast.q25,
+    upper50: forecast.q75,
+    lower95: forecast.q025,
+    upper95: forecast.q975,
+    width50: Math.max(
+      forecast.q75 - forecast.median,
+      forecast.median - forecast.q25,
+    ),
+    width95: Math.max(
+      forecast.q975 - forecast.median,
+      forecast.median - forecast.q025,
+    ),
+  }));
+
 const TournamentGame = ({
   tournamentConfig = TOURNAMENT_CONFIG,
   participantId,
@@ -74,6 +96,7 @@ const TournamentGame = ({
   const [leaderboardData, setLeaderboardData] = useState(null);
   const [groundTruthData, setGroundTruthData] = useState({});
   const [scenarioData, setScenarioData] = useState({});
+  const [savedSubmissions, setSavedSubmissions] = useState({});
   const [loading, setLoading] = useState(true);
 
   const challenge = tournamentConfig.challenges[currentChallengeIndex];
@@ -91,6 +114,9 @@ const TournamentGame = ({
       ),
     [tournamentConfig],
   );
+  const isChallengeLocked =
+    tournamentConfig.features?.allowResubmit === false &&
+    completedChallenges.has(challenge?.id);
 
   // Load all challenge data and ground truth
   useEffect(() => {
@@ -152,6 +178,7 @@ const TournamentGame = ({
       try {
         const data = await getParticipant(participantId, tournamentConfig);
         const completed = new Set();
+        const nextSavedSubmissions = {};
 
         data.submissions.forEach((sub) => {
           const challengeId =
@@ -163,10 +190,12 @@ const TournamentGame = ({
             enabledChallengeIds.has(challengeId)
           ) {
             completed.add(challengeId);
+            nextSavedSubmissions[challengeId] = sub;
           }
         });
 
         setCompletedChallenges(completed);
+        setSavedSubmissions(nextSavedSubmissions);
       } catch (err) {
         console.error("Failed to load completed challenges:", err);
       }
@@ -221,13 +250,18 @@ const TournamentGame = ({
   useEffect(() => {
     if (!challenge) return;
 
-    setForecastEntries(initialInputs);
+    const savedSubmission = savedSubmissions[challenge.id];
+    if (savedSubmission?.forecasts?.length) {
+      setForecastEntries(restoreForecastEntries(savedSubmission.forecasts));
+    } else {
+      setForecastEntries(initialInputs);
+    }
     setSubmissionErrors({});
     setScores(null);
     setInputMode("median");
     setVisibleRankings(0);
     setError(null);
-  }, [currentChallengeIndex, initialInputs, challenge]);
+  }, [currentChallengeIndex, initialInputs, challenge, savedSubmissions]);
 
   const groundTruthSeries = useMemo(() => {
     if (!challenge || !scenarioData[challenge.number]) return [];
@@ -278,6 +312,10 @@ const TournamentGame = ({
   }, [latestObservationValue, forecastEntries]);
 
   const handleAdjust = (index, field, value) => {
+    if (isChallengeLocked) {
+      return;
+    }
+
     setForecastEntries((prevEntries) =>
       prevEntries.map((entry, idx) => {
         if (idx !== index) return entry;
@@ -331,6 +369,13 @@ const TournamentGame = ({
   };
 
   const handleSubmit = async () => {
+    if (isChallengeLocked) {
+      setError(
+        "This challenge has already been submitted. Amendments are disabled for this tournament.",
+      );
+      return;
+    }
+
     const intervalsForValidation = convertToIntervals(forecastEntries);
     const { valid, errors } = validateForecastSubmission(
       intervalsForValidation,
@@ -382,6 +427,21 @@ const TournamentGame = ({
 
       // Mark as completed
       setCompletedChallenges((prev) => new Set([...prev, challenge.id]));
+      setSavedSubmissions((prev) => ({
+        ...prev,
+        [challenge.id]: {
+          challengeId: challenge.id,
+          challengeNum: challenge.number,
+          forecasts: forecastEntries.map((entry) => ({
+            horizon: entry.horizon,
+            median: entry.median,
+            q25: entry.lower50,
+            q75: entry.upper50,
+            q025: entry.lower95,
+            q975: entry.upper95,
+          })),
+        },
+      }));
 
       // Move to scoring view
       setInputMode("scoring");
@@ -450,7 +510,7 @@ const TournamentGame = ({
             <Stepper.Step
               key={ch.id}
               label={`Challenge ${idx + 1}`}
-              description={`${ch.displayName} - ${ch.dataset.toUpperCase()}`}
+              description={`${ch.displayName} - ${getChallengeDatasetLabel(ch, tournamentConfig)}`}
               icon={
                 completedChallenges.has(ch.id) ? (
                   <IconCheck size={18} />
@@ -471,8 +531,12 @@ const TournamentGame = ({
                   {challenge.description}
                 </Text>
                 <Text size="xs" c="dimmed" mt="xs">
-                  Forecast date: {challenge.forecastDate} •{" "}
-                  {challenge.displayName}
+                  Forecast date:{" "}
+                  {getMaskedForecastDate(
+                    challenge.forecastDate,
+                    tournamentConfig,
+                  )}{" "}
+                  • {challenge.displayName}
                 </Text>
               </div>
 
@@ -483,6 +547,17 @@ const TournamentGame = ({
                   color="red"
                 >
                   {error}
+                </Alert>
+              )}
+
+              {isChallengeLocked && (
+                <Alert
+                  icon={<IconCheck size={16} />}
+                  title="Challenge submitted"
+                  color="blue"
+                >
+                  Amendments are disabled for this tournament. Your submitted
+                  forecast is shown below, but it cannot be changed.
                 </Alert>
               )}
 
@@ -544,6 +619,7 @@ const TournamentGame = ({
                       onChange={setForecastEntries}
                       maxValue={maxValue}
                       mode={inputMode}
+                      disabled={isChallengeLocked}
                     />
 
                     {Object.keys(submissionErrors).length > 0 && (
@@ -571,6 +647,7 @@ const TournamentGame = ({
                             <Button
                               onClick={() => setInputMode("intervals")}
                               rightSection="→"
+                              disabled={isChallengeLocked}
                             >
                               Next: Set Intervals
                             </Button>
@@ -580,6 +657,7 @@ const TournamentGame = ({
                               loading={submitting}
                               color="green"
                               leftSection={<IconTarget size={16} />}
+                              disabled={isChallengeLocked}
                             >
                               Submit Forecast
                             </Button>

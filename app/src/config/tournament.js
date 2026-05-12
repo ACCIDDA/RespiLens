@@ -49,6 +49,8 @@ const DEFAULT_TOURNAMENT_SETTINGS = {
   },
   features: {
     allowResubmit: false,
+    maskChallengeYear: false,
+    maskPathogen: false,
     showOtherForecasts: false,
     showModelComparisons: false,
     enableSocialSharing: true,
@@ -70,6 +72,10 @@ export const TOURNAMENT_REGISTRY = [
       import.meta.env.VITE_EMILY_TOURNAMENT_API_URL ||
       "https://script.google.com/macros/s/AKfycby_pE9-KoA_bWjv9xIzNC1DF8jIrMPbQJ3I9P62RafivdQaHujnX2539tYFZtrn-nGRpw/exec",
     sheetId: "1-WMVKajvdkxRpNM7NwYaRYyVK1JdP7jbfV6JooLfguo",
+    features: {
+      maskChallengeYear: true,
+      maskPathogen: false,
+    },
     challenges: [
       {
         id: "ch-1",
@@ -225,6 +231,34 @@ const normalizeTournament = (tournament) => {
 export const ENABLED_TOURNAMENTS = TOURNAMENT_REGISTRY.filter(
   (tournament) => tournament.enabled !== false,
 ).map(normalizeTournament);
+
+export const shouldMaskChallengeYear = (tournamentConfig = TOURNAMENT_CONFIG) =>
+  tournamentConfig.features?.maskChallengeYear === true;
+
+export const shouldMaskPathogen = (tournamentConfig = TOURNAMENT_CONFIG) =>
+  tournamentConfig.features?.maskPathogen === true;
+
+export const getMaskedForecastDate = (
+  forecastDate,
+  tournamentConfig = TOURNAMENT_CONFIG,
+) => {
+  if (!shouldMaskChallengeYear(tournamentConfig)) {
+    return forecastDate;
+  }
+
+  return String(forecastDate).replace(/\b\d{4}\b/g, "xxxx");
+};
+
+export const getChallengeDatasetLabel = (
+  challenge,
+  tournamentConfig = TOURNAMENT_CONFIG,
+) => {
+  if (!shouldMaskPathogen(tournamentConfig)) {
+    return challenge.dataset.toUpperCase();
+  }
+
+  return "PATHOGEN";
+};
 
 export const getTournamentById = (tournamentId) =>
   ENABLED_TOURNAMENTS.find((tournament) => tournament.id === tournamentId) ||
