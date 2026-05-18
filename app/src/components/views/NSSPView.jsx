@@ -404,7 +404,7 @@ const NSSPView = ({ location, data, metadata }) => {
     stateInfo?.name ||
     "Selected county";
   const plotTitle = isStatewideOnlyDetail
-    ? `${detailHeading} — NSSP`
+    ? `${stateInfo?.name || stateAbbreviation} (All) — NSSP`
     : `${getCountyDisplayLabel(detailHeading)} — NSSP`;
 
   const handleUnitedStatesStateClick = (feature) => {
