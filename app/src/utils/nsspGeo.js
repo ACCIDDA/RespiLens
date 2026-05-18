@@ -160,10 +160,20 @@ export const fetchNsspLocationLabel = async (locationId) => {
           );
         }
 
+        const stateAbbreviation =
+          getNsspStateAbbreviationFromLocation(locationId);
+        const stateName =
+          NSSP_STATE_ABBREVIATION_TO_INFO[stateAbbreviation]?.name || "";
         const data = await fetchJson(
           getDataPath(`nssp/${locationId}_nssp.json`),
         );
-        return data?.metadata?.location_name || locationId;
+        const countyLabel = data?.metadata?.location_name || locationId;
+
+        if (!stateName) {
+          return countyLabel;
+        }
+
+        return `${stateName} - ${countyLabel}`;
       })(),
     );
   }

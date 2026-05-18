@@ -19,6 +19,7 @@ import {
 } from "@tabler/icons-react";
 import { getSavedPlots, deletePlot } from "../../utils/plotStorage";
 import { fetchNsspLocationLabel } from "../../utils/nsspGeo";
+import { resolvePlotLocationDisplayName } from "../../utils/plotLocationDisplay";
 import MiniPlot from "./MiniPlot";
 
 const MyPlots = () => {
@@ -73,11 +74,24 @@ const MyPlots = () => {
   const hasPlots = userSavedPlots.length > 0;
 
   const getPlotLocationLabel = (plot) => {
+    if (plot.locationDisplayName) {
+      return plot.locationDisplayName;
+    }
+
     if (plot.viewType === "nsspall") {
       return plotLocationLabels[plot.id] || plot.settings.location;
     }
 
-    return plot.settings.location.toUpperCase();
+    if (plot.settings.location === "US") {
+      return "United States";
+    }
+
+    const resolvedLocation = resolvePlotLocationDisplayName(
+      plot.settings.location,
+    );
+    return resolvedLocation === plot.settings.location
+      ? plot.settings.location.toUpperCase()
+      : resolvedLocation;
   };
 
   const pageContainerStyle = {

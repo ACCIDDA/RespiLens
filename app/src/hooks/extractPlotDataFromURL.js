@@ -1,4 +1,5 @@
 import { savePlot } from "../utils/plotStorage";
+import { resolvePlotLocationDisplayName } from "../utils/plotLocationDisplay";
 
 const NSSP_COLUMN_LABELS = {
   percent_visits_covid: "COVID-19",
@@ -33,6 +34,7 @@ export const extractPlotData = (viewType, href, data) => {
   let scale = "";
   let intervals = [];
   let viewDisplayName = "";
+  let locationDisplayName = "";
 
   // forecast views set date dynamically if it is the default date (not present in URL)
   switch (viewType) {
@@ -260,6 +262,8 @@ export const extractPlotData = (viewType, href, data) => {
     dataSuffix,
     fileName,
     fullDataPath,
+    locationDisplayName:
+      locationDisplayName || resolvePlotLocationDisplayName(location, data),
     settings: {
       location,
       target,
