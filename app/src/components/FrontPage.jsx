@@ -1,6 +1,7 @@
 import { SimpleGrid, Stack, Title, Paper, Anchor } from "@mantine/core";
 import PathogenOverviewGraph from "./PathogenOverviewGraph";
 import NHSNOverviewGraph from "./NHSNOverviewGraph";
+import NSSPOverviewGraph from "./NSSPOverviewGraph";
 import Announcement from "./Announcement";
 import { useView } from "../hooks/useView";
 
@@ -98,9 +99,10 @@ const FrontPage = () => {
       </Paper>
       <Paper shadow="sm" p="lg" radius="md" withBorder>
         <Stack gap="md">
-          <Title order={3}>Explore surveillance data</Title>
+          <Title order={3}>Explore surveillance data by source</Title>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
             <NHSNOverviewGraph location={selectedLocation} />
+            <NSSPOverviewGraph />
           </SimpleGrid>
         </Stack>
       </Paper>

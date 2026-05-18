@@ -13,15 +13,19 @@ import {
   useMantineColorScheme,
 } from "@mantine/core";
 import { IconAlertTriangle, IconArrowLeft } from "@tabler/icons-react";
-import { geoAlbersUsa, geoMercator, geoPath } from "d3-geo";
 import Plot from "react-plotly.js";
 import Plotly from "plotly.js/dist/plotly";
 import NSSPColumnSelector from "../NSSPColumnSelector";
+import NSSPGeoMap from "../NSSPGeoMap";
 import TitleRow from "../TitleRow";
 import { MODEL_COLORS } from "../../config/datasets";
 import { useView } from "../../hooks/useView";
 import { buildPlotDownloadName } from "../../utils/plotDownloadName";
 import { buildSqrtTicks, getYRangeFromTraces } from "../../utils/scaleUtils";
+import {
+  NSSP_MAP_COLORS as MAP_COLORS,
+  NSSP_MAP_HEIGHTS,
+} from "../../utils/nsspMap";
 import {
   NSSP_STATE_ABBREVIATION_TO_INFO,
   fetchNsspCountiesGeoJson,
@@ -36,20 +40,6 @@ import {
   normalizeCountyBasename,
 } from "../../utils/nsspGeo";
 
-const MAP_WIDTH = 960;
-const US_MAP_HEIGHT = 620;
-const STATE_MAP_HEIGHT = 720;
-
-const MAP_COLORS = {
-  base: "#d9e4f5",
-  active: "#8bb6ff",
-  selected: "#245bdb",
-  outline: "#355070",
-  hover: "#5f8fda",
-  fallback: "#edf3fb",
-  unavailable: "#d7d7db",
-};
-
 const NSSP_COLUMN_LABELS = {
   percent_visits_covid: "COVID-19",
   percent_visits_influenza: "Influenza",
@@ -57,82 +47,6 @@ const NSSP_COLUMN_LABELS = {
 };
 
 const NSSP_DEFAULT_COLUMNS = Object.keys(NSSP_COLUMN_LABELS);
-
-const GeoMap = ({
-  featureCollection,
-  height,
-  projectionKind,
-  onFeatureClick,
-  isFeatureClickable,
-  getFeatureKey,
-  getFeatureLabel,
-  getFeatureFill,
-}) => {
-  const pathGenerator = useMemo(() => {
-    if (!featureCollection?.features?.length) {
-      return null;
-    }
-
-    const projection =
-      projectionKind === "usa" ? geoAlbersUsa() : geoMercator();
-    projection.fitSize([MAP_WIDTH, height], featureCollection);
-
-    return geoPath(projection);
-  }, [featureCollection, height, projectionKind]);
-
-  if (!featureCollection?.features?.length || !pathGenerator) {
-    return null;
-  }
-
-  return (
-    <svg
-      viewBox={`0 0 ${MAP_WIDTH} ${height}`}
-      style={{ width: "100%", height: "auto", display: "block" }}
-      role="img"
-      aria-label="Interactive geographic map"
-    >
-      {featureCollection.features.map((feature) => {
-        const pathData = pathGenerator(feature);
-        if (!pathData) {
-          return null;
-        }
-
-        const label = getFeatureLabel(feature);
-        const isClickable = isFeatureClickable
-          ? isFeatureClickable(feature)
-          : true;
-        return (
-          <path
-            key={getFeatureKey(feature)}
-            d={pathData}
-            fill={getFeatureFill(feature)}
-            stroke={MAP_COLORS.outline}
-            strokeWidth={0.8}
-            style={{
-              cursor: isClickable ? "pointer" : "not-allowed",
-              transition: "fill 150ms ease",
-            }}
-            onClick={() => {
-              if (isClickable) {
-                onFeatureClick(feature);
-              }
-            }}
-            onMouseEnter={(event) => {
-              if (isClickable) {
-                event.currentTarget.style.fill = MAP_COLORS.hover;
-              }
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.fill = getFeatureFill(feature);
-            }}
-          >
-            <title>{label}</title>
-          </path>
-        );
-      })}
-    </svg>
-  );
-};
 
 const NSSPView = ({ location, data, metadata }) => {
   const { handleLocationSelect, locationMessage, chartScale, showLegend } =
@@ -881,9 +795,9 @@ const NSSPView = ({ location, data, metadata }) => {
                 {mapError}
               </Alert>
             ) : isUnitedStates ? (
-              <GeoMap
+              <NSSPGeoMap
                 featureCollection={usMapData}
-                height={US_MAP_HEIGHT}
+                height={NSSP_MAP_HEIGHTS.usa}
                 projectionKind="usa"
                 onFeatureClick={handleUnitedStatesStateClick}
                 isFeatureClickable={isStateClickable}
@@ -892,9 +806,9 @@ const NSSPView = ({ location, data, metadata }) => {
                 getFeatureFill={getStateFill}
               />
             ) : currentStateCoverage.hasCountyData ? (
-              <GeoMap
+              <NSSPGeoMap
                 featureCollection={stateMapData}
-                height={STATE_MAP_HEIGHT}
+                height={NSSP_MAP_HEIGHTS.state}
                 projectionKind="state"
                 onFeatureClick={handleCountyClick}
                 isFeatureClickable={isCountyClickable}

@@ -623,10 +623,12 @@ export const ViewProvider = ({ children }) => {
     updateDatasetParams({ target: target });
   };
 
-  const handleViewChange = useCallback(
-    (newView) => {
+  const handleViewLocationChange = useCallback(
+    (newView, explicitLocation) => {
       const oldView = viewType;
-      if (oldView === newView) return;
+      if (!newView) {
+        return;
+      }
 
       const oldDataset = urlManager.getDatasetFromView(oldView);
       const newDataset = urlManager.getDatasetFromView(newView);
@@ -634,14 +636,16 @@ export const ViewProvider = ({ children }) => {
       const effectiveDefault =
         newDataset?.defaultLocation || APP_CONFIG.defaultLocation;
       const { nextLocation, locationMessage: nextLocationMessage } =
-        resolveLocationForView({
-          nextView: newView,
-          currentView: oldView,
-          currentLocation: selectedLocation,
-          currentData: data,
-          destinationDefaultLocation: effectiveDefault,
-          locationCatalogs,
-        });
+        explicitLocation
+          ? { nextLocation: explicitLocation, locationMessage: null }
+          : resolveLocationForView({
+              nextView: newView,
+              currentView: oldView,
+              currentLocation: selectedLocation,
+              currentData: data,
+              destinationDefaultLocation: effectiveDefault,
+              locationCatalogs,
+            });
 
       setLocationMessage(nextLocationMessage);
       setSelectedLocation(nextLocation);
@@ -662,7 +666,7 @@ export const ViewProvider = ({ children }) => {
       }
 
       const isDatasetChange = oldDataset?.shortName !== newDataset?.shortName;
-      const isPeakTransition = oldView === "flu_peak" || newView === "flu_peak"; // reset if coming or going from flu_peak
+      const isPeakTransition = oldView === "flu_peak" || newView === "flu_peak";
 
       if (isDatasetChange || isPeakTransition) {
         setSelectedDates([]);
@@ -691,18 +695,25 @@ export const ViewProvider = ({ children }) => {
       }
 
       setViewTypeState(newView);
-      // Push history for view changes so browser back works between forecast views.
       setSearchParams(newSearchParams, { replace: false });
     },
     [
       viewType,
-      searchParams,
-      setSearchParams,
       urlManager,
+      searchParams,
       selectedLocation,
       data,
       locationCatalogs,
+      setSearchParams,
     ],
+  );
+
+  const handleViewChange = useCallback(
+    (newView) => {
+      if (viewType === newView) return;
+      handleViewLocationChange(newView);
+    },
+    [handleViewLocationChange, viewType],
   );
 
   useEffect(() => {
@@ -862,6 +873,7 @@ export const ViewProvider = ({ children }) => {
     setActiveDate,
     viewType,
     setViewType: handleViewChange,
+    setViewAndLocation: handleViewLocationChange,
     currentDataset: urlManager.getDatasetFromView(viewType),
     availableTargets: availableTargetsToExpose,
 
