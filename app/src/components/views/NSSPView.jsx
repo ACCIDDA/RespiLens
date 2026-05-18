@@ -392,12 +392,20 @@ const NSSPView = ({ location, data, metadata }) => {
 
   const hasReachedCountyDetail =
     !isUnitedStates && !isStatewide && currentStateCoverage.hasCountyData;
+  const isStatewideOnlyDetail =
+    !isUnitedStates &&
+    isStatewide &&
+    currentStateCoverage.hasAnyData &&
+    !currentStateCoverage.hasCountyData;
+  const shouldShowPlot = hasReachedCountyDetail || isStatewideOnlyDetail;
   const detailHeading =
     selectedCounty?.countyName ||
     data?.metadata?.location_name ||
     stateInfo?.name ||
     "Selected county";
-  const countyPlotTitle = `${getCountyDisplayLabel(detailHeading)} — NSSP`;
+  const plotTitle = isStatewideOnlyDetail
+    ? `${detailHeading} — NSSP`
+    : `${getCountyDisplayLabel(detailHeading)} — NSSP`;
 
   const handleUnitedStatesStateClick = (feature) => {
     const nextStateAbbreviation = feature?.properties?.STUSAB;
@@ -738,16 +746,15 @@ const NSSPView = ({ location, data, metadata }) => {
         )}
       </Group>
 
-      {hasReachedCountyDetail ? (
+      {shouldShowPlot ? (
         <Stack gap="md" w="100%">
-          <TitleRow
-            title={countyPlotTitle}
-            timestamp={metadata?.last_updated}
-          />
-          <Text size="sm" c="dimmed" ta="center">
-            County selections resolve to their shared HSA grouping when
-            applicable.
-          </Text>
+          <TitleRow title={plotTitle} timestamp={metadata?.last_updated} />
+          {hasReachedCountyDetail ? (
+            <Text size="sm" c="dimmed" ta="center">
+              County selections resolve to their shared HSA grouping when
+              applicable.
+            </Text>
+          ) : null}
           <div
             style={{
               width: "100%",
