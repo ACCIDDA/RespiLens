@@ -8,12 +8,16 @@ import {
 } from "@tabler/icons-react";
 import InfoOverlay from "../InfoOverlay";
 import { useView } from "../../hooks/useView";
+import { APP_CONFIG } from "../../config/app";
 
 const MainNavigation = () => {
   const location = useLocation();
-  const { setViewType } = useView();
+  const { setViewAndLocation } = useView();
 
   const isActive = (path) => location.pathname.startsWith(path);
+  const handleForecastsNavigation = () => {
+    setViewAndLocation("frontpage", APP_CONFIG.defaultLocation);
+  };
 
   const navigationItems = [
     {
@@ -58,7 +62,7 @@ const MainNavigation = () => {
         to="/"
         underline="never"
         c="inherit"
-        onClick={() => setViewType("frontpage")}
+        onClick={handleForecastsNavigation}
       >
         <Group gap="sm" align="center" style={{ flexShrink: 0 }}>
           <Image
@@ -90,6 +94,7 @@ const MainNavigation = () => {
             variant={item.active ? "filled" : "subtle"}
             leftSection={<item.icon size={16} />}
             size="sm"
+            onClick={item.href === "/" ? handleForecastsNavigation : undefined}
           >
             {item.label}
           </Button>
