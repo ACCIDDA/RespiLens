@@ -122,6 +122,7 @@ let statesTopoPromise;
 let countiesTopoPromise;
 let countyMetadataPromise;
 const stateCountyAssignmentPromises = new Map();
+const nsspLocationLabelPromises = new Map();
 
 const getNsspMetadata = () => {
   if (!nsspMetadataPromise) {
@@ -135,6 +136,39 @@ const getNsspLocationInfo = () => {
     nsspLocationInfoPromise = fetchJson(getDataPath("nssp/location_info.json"));
   }
   return nsspLocationInfoPromise;
+};
+
+export const fetchNsspLocationLabel = async (locationId) => {
+  if (!locationId) {
+    return "";
+  }
+
+  if (!nsspLocationLabelPromises.has(locationId)) {
+    nsspLocationLabelPromises.set(
+      locationId,
+      (async () => {
+        if (isNsspUnitedStatesLocation(locationId)) {
+          return "United States";
+        }
+
+        if (isNsspStatewideLocation(locationId)) {
+          const stateAbbreviation =
+            getNsspStateAbbreviationFromLocation(locationId);
+          return (
+            NSSP_STATE_ABBREVIATION_TO_INFO[stateAbbreviation]?.name ||
+            locationId
+          );
+        }
+
+        const data = await fetchJson(
+          getDataPath(`nssp/${locationId}_nssp.json`),
+        );
+        return data?.metadata?.location_name || locationId;
+      })(),
+    );
+  }
+
+  return nsspLocationLabelPromises.get(locationId);
 };
 
 const getStatesTopology = () => {

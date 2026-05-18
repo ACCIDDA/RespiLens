@@ -18,15 +18,51 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { getSavedPlots, deletePlot } from "../../utils/plotStorage";
+import { fetchNsspLocationLabel } from "../../utils/nsspGeo";
 import MiniPlot from "./MiniPlot";
 
 const MyPlots = () => {
   const [userSavedPlots, setUserSavedPlots] = useState([]);
+  const [plotLocationLabels, setPlotLocationLabels] = useState({});
 
   useEffect(() => {
     const plots = getSavedPlots();
     setUserSavedPlots(plots);
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadNsspLabels = async () => {
+      const nsspPlots = userSavedPlots.filter(
+        (plot) => plot.viewType === "nsspall" && plot.settings?.location,
+      );
+
+      if (nsspPlots.length === 0) {
+        if (isActive) {
+          setPlotLocationLabels({});
+        }
+        return;
+      }
+
+      const resolvedEntries = await Promise.all(
+        nsspPlots.map(async (plot) => [
+          plot.id,
+          await fetchNsspLocationLabel(plot.settings.location),
+        ]),
+      );
+
+      if (isActive) {
+        setPlotLocationLabels(Object.fromEntries(resolvedEntries));
+      }
+    };
+
+    loadNsspLabels();
+
+    return () => {
+      isActive = false;
+    };
+  }, [userSavedPlots]);
 
   const handleDelete = (id) => {
     if (deletePlot(id)) {
@@ -35,6 +71,14 @@ const MyPlots = () => {
   };
 
   const hasPlots = userSavedPlots.length > 0;
+
+  const getPlotLocationLabel = (plot) => {
+    if (plot.viewType === "nsspall") {
+      return plotLocationLabels[plot.id] || plot.settings.location;
+    }
+
+    return plot.settings.location.toUpperCase();
+  };
 
   const pageContainerStyle = {
     width: "100%",
@@ -139,7 +183,11 @@ const MyPlots = () => {
                 <Stack gap="sm" justify="space-between" h="100%">
                   <Box>
                     <Group justify="space-between" mb="xs" wrap="nowrap">
-                      <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
+                      <Group
+                        gap="xs"
+                        wrap="nowrap"
+                        style={{ flex: 1, minWidth: 0 }}
+                      >
                         <Badge
                           color="gray"
                           variant="outline"
@@ -148,8 +196,21 @@ const MyPlots = () => {
                         >
                           {plot.viewDisplayName.toUpperCase()}
                         </Badge>
-                        <Text fw={700} size="sm" c="blue.7" truncate>
-                          {plot.settings.location.toUpperCase()}
+                        <Text
+                          fw={700}
+                          size="sm"
+                          c="blue.7"
+                          truncate
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={getPlotLocationLabel(plot)}
+                        >
+                          {getPlotLocationLabel(plot)}
                         </Text>
                       </Group>
 
