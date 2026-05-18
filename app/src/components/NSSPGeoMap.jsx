@@ -3,6 +3,10 @@ import { geoAlbersUsa, geoMercator, geoPath } from "d3-geo";
 import { NSSP_MAP_COLORS } from "../utils/nsspMap";
 
 const MAP_WIDTH = 960;
+const MAP_PADDING = {
+  usa: 24,
+  state: 72,
+};
 
 const NSSPGeoMap = ({
   featureCollection,
@@ -21,7 +25,14 @@ const NSSPGeoMap = ({
 
     const projection =
       projectionKind === "usa" ? geoAlbersUsa() : geoMercator();
-    projection.fitSize([MAP_WIDTH, height], featureCollection);
+    const padding = MAP_PADDING[projectionKind] ?? MAP_PADDING.state;
+    projection.fitExtent(
+      [
+        [padding, padding],
+        [MAP_WIDTH - padding, height - padding],
+      ],
+      featureCollection,
+    );
 
     return geoPath(projection);
   }, [featureCollection, height, projectionKind]);

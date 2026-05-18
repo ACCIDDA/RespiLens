@@ -1,6 +1,6 @@
 export const NSSP_MAP_HEIGHTS = {
   usa: 620,
-  state: 720,
+  state: 640,
 };
 
 export const NSSP_MAP_COLORS = {
