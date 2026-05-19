@@ -35,6 +35,7 @@ const normalizeLabel = (value = "") =>
 
 const MyPlots = () => {
   const [userSavedPlots, setUserSavedPlots] = useState([]);
+  const [plotMetadata, setPlotMetadata] = useState({});
   const [plotLocationLabels, setPlotLocationLabels] = useState({});
 
   useEffect(() => {
@@ -133,6 +134,7 @@ const MyPlots = () => {
       ) {
         return current;
       }
+
       return {
         ...current,
         [plotId]: metadata,
@@ -143,6 +145,10 @@ const MyPlots = () => {
   const getPlotLocationLabel = (plot) => {
     if (plot.locationDisplayName) {
       return plot.locationDisplayName;
+    }
+
+    if (plotMetadata[plot.id]?.location_name) {
+      return plotMetadata[plot.id].location_name;
     }
 
     if (plot.viewType === "nsspall") {
@@ -156,6 +162,7 @@ const MyPlots = () => {
     const resolvedLocation = resolvePlotLocationDisplayName(
       plot.settings.location,
     );
+
     return resolvedLocation === plot.settings.location
       ? plot.settings.location.toUpperCase()
       : resolvedLocation;
@@ -232,125 +239,50 @@ const MyPlots = () => {
             }}
             gap="lg"
           >
-            <Stack align="center" gap="xl">
-              <ThemeIcon size={80} variant="light" color="gray" radius="xl">
-                <IconChartScatter size={40} />
-              </ThemeIcon>
+            <Paper p="md" radius="md" withBorder shadow="sm">
+              <Group justify="space-between" align="center">
+                <div>
+                  <Title order={2}>My Plots</Title>
+                  <Text size="sm" c="dimmed">
+                    Your personalized library of saved visualizations.
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    This feature is in its alpha release, and is still under
+                    develoment. If you encounter a bug or have a suggestion,
+                    please{" "}
+                    <a
+                      href="https://github.com/ACCIDDA/RespiLens/issues/new?title=%E2%80%BC%EF%B8%8FMy%20Plots:%20user%20bug%20or%20suggestion%20%E2%80%BC%EF%B8%8F"
+                      rel="noopener"
+                      target="_blank"
+                    >
+                      let us know.
+                    </a>
+                  </Text>
+                </div>
+                <Badge variant="filled" size="lg" color="blue">
+                  {plotCount} Saved
+                </Badge>
+              </Group>
+            </Paper>
 
-              <div style={{ textAlign: "center" }}>
-                <Title order={2} mb="md">
-                  No plots saved yet...
-                </Title>
-                <Text size="sm" c="dimmed">
-                  You haven't added any visualizations to <b>My Plots</b> yet.
-                  Click the "Add to My Plots" button on any plot to see it here
-                  with any editorializations you choose. This feature is in its
-                  alpha release; if you encounter bugs or have suggestions,
-                  please report them
-                  <a
-                    href="https://github.com/ACCIDDA/RespiLens/issues/new?title=%E2%80%BC%EF%B8%8FMy%20Plots:%20user%20bug%20or%20suggestion%20%E2%80%BC%EF%B8%8F"
-                    rel="noopener"
-                    target="_blank"
-                  >
-                    {" "}
-                    here.
-                  </a>
-                </Text>
-              </div>
-
-              <Text size="xs" fw={500} c="blue" style={{ opacity: 0.7 }}>
-                Plots are stored locally in your browser.
-              </Text>
-            </Stack>
-          </Paper>
-        </Center>
-      ) : (
-        <Stack style={{ width: "100%", maxWidth: "1400px" }} gap="xl">
-          <Paper p="md" radius="md" withBorder shadow="sm">
-            <Group justify="space-between" align="center">
-              <div>
-                <Title order={2}>My Plots</Title>
-                <Text size="sm" c="dimmed">
-                  Your personalized library of saved visualizations.
-                </Text>
-                <Text size="sm" c="dimmed">
-                  This feature is in its alpha release, and is still under
-                  develoment. If you encounter a bug or have a suggestion,
-                  please{" "}
-                  <a
-                    href="https://github.com/ACCIDDA/RespiLens/issues/new?title=%E2%80%BC%EF%B8%8FMy%20Plots:%20user%20bug%20or%20suggestion%20%E2%80%BC%EF%B8%8F"
-                    rel="noopener"
-                    target="_blank"
-                  >
-                    let us know.
-                  </a>
-                </Text>
-              </div>
-              <Badge variant="filled" size="lg" color="blue">
-                {userSavedPlots.length} Saved
-              </Badge>
-            </Group>
-          </Paper>
-
-          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xl">
-            {userSavedPlots.map((plot) => (
-              <Paper
-                key={plot.id}
-                p="lg"
-                radius="md"
-                withBorder
-                shadow="md"
-                style={{
-                  backgroundColor: "var(--mantine-color-body)",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
+            <Box style={{ width: "100%" }}>
+              <SimpleGrid
+                cols={gridConfig.cols}
+                spacing="md"
+                verticalSpacing="md"
               >
-                <Stack gap="sm" justify="space-between" h="100%">
-                  <Box>
-                    <Group justify="space-between" mb="xs" wrap="nowrap">
-                      <Group
-                        gap="xs"
-                        wrap="nowrap"
-                        style={{ flex: 1, minWidth: 0 }}
-                      >
-                        <Badge
-                          color="gray"
-                          variant="outline"
-                          size="xs"
-                          style={{ flexShrink: 0 }}
-                        >
-                          {plot.viewDisplayName.toUpperCase()}
-                        </Badge>
-                        <Text
-                          fw={700}
-                          size="sm"
-                          c="blue.7"
-                          truncate
-                          style={{
-                            flex: 1,
-                            minWidth: 0,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                          title={getPlotLocationLabel(plot)}
-                        >
-                          {getPlotLocationLabel(plot)}
-                        </Text>
-                      </Group>
+                {userSavedPlots.map((plot) => {
+                  const metadata = plotMetadata[plot.id];
+                  const locationName = getPlotLocationLabel(plot);
+                  const pathogenLabel =
+                    getDatasetTitleFromView(plot.viewType) ||
+                    metadata?.dataset ||
+                    plot.viewDisplayName;
+                  const showViewBadge =
+                    normalizeLabel(plot.viewDisplayName) !==
+                    normalizeLabel(pathogenLabel);
 
-                      <Button
-                        variant="subtle"
-                        color="red"
-                        size="compact-xs"
-                        leftSection={<IconTrash size={14} />}
-                        onClick={() => handleDelete(plot.id)}
-                        style={{ flexShrink: 0 }}
-                      >
-                        Remove
-                      </Button>
-                    </Group>
+                  return (
                     <Paper
                       key={plot.id}
                       p="sm"
@@ -436,8 +368,8 @@ const MyPlots = () => {
                           <MiniPlot
                             plot={plot}
                             plotHeight={gridConfig.plotHeight}
-                            onMetadataLoad={(metadata) =>
-                              handleMetadataLoad(plot.id, metadata)
+                            onMetadataLoad={(metadataForPlot) =>
+                              handleMetadataLoad(plot.id, metadataForPlot)
                             }
                           />
                         </Paper>

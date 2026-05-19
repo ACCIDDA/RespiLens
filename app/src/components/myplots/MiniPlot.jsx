@@ -242,8 +242,8 @@ const MiniPlot = ({ plot, onMetadataLoad, plotHeight = 210 }) => {
     isSeriesView,
     data,
     finalTraces,
+    plotHeight,
   ]);
-  }, [colorScheme, plot.settings, isNHSN, data, finalTraces, plotHeight]);
 
   // Helper for hover label content
   const tooltipContent = useMemo(() => {
