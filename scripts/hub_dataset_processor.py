@@ -21,7 +21,6 @@ class HubDatasetConfig:
 
     file_suffix: str
     dataset_label: str
-    ground_truth_date_column: str
     ground_truth_min_date: Optional[pd.Timestamp] = None
     series_type: str = "projection"
     observation_column: str = "observation"
@@ -34,7 +33,7 @@ class HubDataProcessorBase:
 
     Subclasses supply dataset-specific configuration via HubDatasetConfig.
     """
-
+    
     def __init__(
         self,
         data: pd.DataFrame,
@@ -175,7 +174,7 @@ class HubDataProcessorBase:
         if filtered.empty:
             return filtered
 
-        date_col = self.config.ground_truth_date_column
+        date_col = "target_end_date"
         
         filtered["as_of"] = pd.to_datetime(filtered["as_of"])
         filtered[date_col] = pd.to_datetime(filtered[date_col])
@@ -197,7 +196,7 @@ class HubDataProcessorBase:
         if ground_truth_df.empty:
             return {"dates": []}
 
-        date_col = self.config.ground_truth_date_column
+        date_col = "target_end_date"
         pivot_truth = ground_truth_df.pivot(
             index=date_col, 
             columns="target", 

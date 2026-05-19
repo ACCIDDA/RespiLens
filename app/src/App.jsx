@@ -21,6 +21,7 @@ import Documentation from "./components/Documentation";
 import ReportingDelayPage from "./components/reporting/ReportingDelayPage";
 import ToolsPage from "./components/tools/ToolsPage";
 import { Center, Text } from "@mantine/core";
+import { ENABLED_TOURNAMENTS } from "./config";
 
 const ForecastApp = () => {
   // This component uses the view context, so it must be inside the provider.
@@ -58,7 +59,13 @@ const AppLayout = () => {
         />
         <Route path="/narratives/:id" element={<SlideNarrativeViewer />} />
         <Route path="/forecastle" element={<ForecastleGame />} />
-        <Route path="/epidemics10" element={<TournamentDashboard />} />
+        {ENABLED_TOURNAMENTS.map((tournament) => (
+          <Route
+            key={tournament.id}
+            path={tournament.path}
+            element={<TournamentDashboard tournamentConfig={tournament} />}
+          />
+        ))}
         <Route path="/myplots" element={<MyPlots />} />
         <Route path="/myrespilens" element={<MyRespiLensDashboard />} />
         <Route path="/toolbox" element={<ToolsPage />} />

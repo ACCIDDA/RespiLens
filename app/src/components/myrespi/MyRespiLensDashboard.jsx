@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { Helmet } from "react-helmet-async";
 import {
   Container,
   Title,
@@ -30,6 +29,7 @@ import Plotly from "plotly.js/dist/plotly";
 import ModelSelector from "../ModelSelector";
 import DateSelector from "../DateSelector";
 import { MODEL_COLORS } from "../../config/datasets";
+import Seo from "../Seo";
 
 const formatTargetNameForTitle = (name) => {
   if (!name) return "Value";
@@ -611,9 +611,11 @@ const MyRespiLensDashboard = () => {
 
   return (
     <>
-      <Helmet>
-        <title>RespiLens | MyRespiLens</title>
-      </Helmet>
+      <Seo
+        title="RespiLens | MyRespiLens"
+        description="Upload and visualize your own RespiLens-compatible respiratory disease forecasts and observed data in a private browser-based dashboard."
+        canonicalPath="/myrespilens"
+      />
       <Container size="xl" py="xl" style={{ maxWidth: "800px" }}>
         <Center style={{ minHeight: "70vh" }}>
           <Stack

@@ -62,6 +62,7 @@ const ForecastleChartCanvasInner = ({
   // fullGroundTruthSeries = null, // remove unused var
   modelForecasts = {},
   horizons = [],
+  dateLabelFormatter = (label) => label,
 }) => {
   const chartRef = useRef(null);
   const [dragState, setDragState] = useState(null);
@@ -669,6 +670,10 @@ const ForecastleChartCanvasInner = ({
         },
         tooltip: {
           callbacks: {
+            title: (items) => {
+              const rawLabel = items?.[0]?.label;
+              return rawLabel ? dateLabelFormatter(rawLabel) : "";
+            },
             label: (context) => {
               const datasetLabel = context.dataset.label || "";
               if (datasetLabel === "Observed") {
@@ -700,6 +705,7 @@ const ForecastleChartCanvasInner = ({
             autoSkip: true,
             maxRotation: 45,
             minRotation: 45,
+            callback: (value) => dateLabelFormatter(labels[value] ?? value),
           },
           grid: {
             display: false,
@@ -724,7 +730,7 @@ const ForecastleChartCanvasInner = ({
         },
       },
     }),
-    [dynamicMax, showScoring],
+    [dateLabelFormatter, dynamicMax, labels, showScoring],
   );
 
   return (

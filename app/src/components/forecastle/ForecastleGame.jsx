@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import {
   Alert,
   Badge,
@@ -51,6 +50,7 @@ import {
 import ForecastleChartCanvas from "./ForecastleChartCanvas";
 import ForecastleInputControls from "./ForecastleInputControls";
 import ForecastleStatsModal from "./ForecastleStatsModal";
+import Seo from "../Seo";
 
 const addWeeksToDate = (dateString, weeks) => {
   const base = new Date(`${dateString}T00:00:00Z`);
@@ -1396,9 +1396,11 @@ const ForecastleGame = () => {
 
   return (
     <>
-      <Helmet>
-        <title>RespiLens | Forecastle</title>
-      </Helmet>
+      <Seo
+        title="RespiLens | Forecastle"
+        description="Play Forecastle, an interactive respiratory disease forecasting challenge that lets you compare your predictions with official model forecasts."
+        canonicalPath="/forecastle"
+      />
       <Container size="xl" py="xl" style={{ maxWidth: "1100px" }}>
         {renderContent()}
         <ForecastleStatsModal

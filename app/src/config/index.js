@@ -25,9 +25,17 @@ import { FORECASTLE_CONFIG } from "./forecastle";
 // Tournament settings
 import {
   TOURNAMENT_CONFIG,
+  TOURNAMENT_REGISTRY,
+  ENABLED_TOURNAMENTS,
+  getTournamentById,
+  getTournamentByPath,
   getChallengeById,
   getChallengeByNumber,
   areAllChallengesCompleted,
+  shouldMaskChallengeYear,
+  shouldMaskPathogen,
+  getMaskedForecastDate,
+  getChallengeDatasetLabel,
 } from "./tournament";
 
 // Visualization and chart settings
@@ -39,9 +47,17 @@ export { APP_CONFIG };
 export { FORECASTLE_CONFIG };
 export {
   TOURNAMENT_CONFIG,
+  TOURNAMENT_REGISTRY,
+  ENABLED_TOURNAMENTS,
+  getTournamentById,
+  getTournamentByPath,
   getChallengeById,
   getChallengeByNumber,
   areAllChallengesCompleted,
+  shouldMaskChallengeYear,
+  shouldMaskPathogen,
+  getMaskedForecastDate,
+  getChallengeDatasetLabel,
 };
 export { CHART_CONFIG };
 

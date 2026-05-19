@@ -10,7 +10,6 @@ class FluMetrocastDataProcessor(HubDataProcessorBase):
         config = HubDatasetConfig(
             file_suffix="flu_metrocast",
             dataset_label="flu metrocast forecasts",
-            ground_truth_date_column="target_end_date",
             ground_truth_min_date=pd.Timestamp("2024-08-01"),
         )
         super().__init__(

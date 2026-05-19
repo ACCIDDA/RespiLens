@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Helmet } from "react-helmet-async";
 import {
   Container,
   Card,
@@ -31,6 +30,7 @@ import {
   getAllTags,
   searchNarratives,
 } from "../../data/narratives/index.js";
+import Seo from "../Seo";
 
 const NarrativeBrowser = ({ onNarrativeSelect }) => {
   const [loading, setLoading] = useState(true);
@@ -159,9 +159,11 @@ const NarrativeBrowser = ({ onNarrativeSelect }) => {
 
   return (
     <>
-      <Helmet>
-        <title>RespiLens | Narratives</title>
-      </Helmet>
+      <Seo
+        title="RespiLens | Narratives"
+        description="Explore interactive RespiLens narratives that combine respiratory disease data, forecasts, and visual explanations."
+        canonicalPath="/narratives"
+      />
       <Container size="xl" py="xl">
         {/* Header */}
         <Paper shadow="sm" p="lg" mb="xl">

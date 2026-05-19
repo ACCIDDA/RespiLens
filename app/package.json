@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:staging": "vite build --mode staging",
     "lint": "eslint .",
+    "test:scoringutils": "node scripts/test-scoringutils-wis.mjs",
     "preview": "vite preview",
     "format": "prettier . --write",
     "format:check": "prettier . --check --log-level warn",

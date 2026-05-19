@@ -16,6 +16,7 @@ import {
   IconClipboard,
   IconChartScatter,
 } from "@tabler/icons-react";
+import { ENABLED_TOURNAMENTS } from "../../config";
 import MainNavigation from "./MainNavigation";
 import StateSelector from "../StateSelector";
 
@@ -78,12 +79,12 @@ const UnifiedAppShell = ({ children, forecastProps = {} }) => {
       icon: IconTarget,
       active: location.pathname.startsWith("/forecastle"),
     },
-    {
-      href: "/epidemics10",
-      label: "Epidemics10",
+    ...ENABLED_TOURNAMENTS.map((tournament) => ({
+      href: tournament.path,
+      label: tournament.navLabel,
       icon: IconTrophy,
-      active: location.pathname.startsWith("/epidemics10"),
-    },
+      active: location.pathname.startsWith(tournament.path),
+    })),
     {
       href: "/myrespilens",
       label: "MyRespiLens",
