@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Badge,
@@ -100,6 +100,7 @@ const TournamentGame = ({
   const [loading, setLoading] = useState(true);
 
   const challenge = tournamentConfig.challenges[currentChallengeIndex];
+  const challengeId = challenge?.id;
   const allChallengesCompleted =
     tournamentConfig.numChallenges > 0 &&
     tournamentConfig.challenges.every((ch) => completedChallenges.has(ch.id));
@@ -245,23 +246,35 @@ const TournamentGame = ({
   );
 
   const [forecastEntries, setForecastEntries] = useState(initialInputs);
+  const previousChallengeIdRef = useRef(null);
 
-  // Reset when moving to next challenge
   useEffect(() => {
-    if (!challenge) return;
+    if (!challengeId) return;
 
-    const savedSubmission = savedSubmissions[challenge.id];
-    if (savedSubmission?.forecasts?.length) {
-      setForecastEntries(restoreForecastEntries(savedSubmission.forecasts));
-    } else {
-      setForecastEntries(initialInputs);
+    const savedSubmission = savedSubmissions[challengeId];
+    const hasSavedForecasts = savedSubmission?.forecasts?.length > 0;
+    const challengeChanged = previousChallengeIdRef.current !== challengeId;
+
+    previousChallengeIdRef.current = challengeId;
+
+    if (challengeChanged) {
+      if (hasSavedForecasts) {
+        setForecastEntries(restoreForecastEntries(savedSubmission.forecasts));
+      } else {
+        setForecastEntries(initialInputs);
+      }
+      setSubmissionErrors({});
+      setScores(null);
+      setInputMode("median");
+      setVisibleRankings(0);
+      setError(null);
+      return;
     }
-    setSubmissionErrors({});
-    setScores(null);
-    setInputMode("median");
-    setVisibleRankings(0);
-    setError(null);
-  }, [currentChallengeIndex, initialInputs, challenge, savedSubmissions]);
+
+    if (inputMode !== "scoring" && hasSavedForecasts) {
+      setForecastEntries(restoreForecastEntries(savedSubmission.forecasts));
+    }
+  }, [challengeId, initialInputs, savedSubmissions, inputMode]);
 
   const groundTruthSeries = useMemo(() => {
     if (!challenge || !scenarioData[challenge.number]) return [];
