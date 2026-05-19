@@ -5,17 +5,6 @@
 
 import { TOURNAMENT_CONFIG, getChallengeByNumber } from "../config";
 
-const challengeMatchesSubmission = (submission, challenge) => {
-  if (!submission || !challenge) {
-    return false;
-  }
-
-  return (
-    submission.challengeId === challenge.id ||
-    Number(submission.challengeNum) === Number(challenge.number)
-  );
-};
-
 /**
  * Make a GET request to the tournament API
  * @param {string} action - API action
@@ -179,22 +168,6 @@ export const submitForecast = async (
 
   if (!forecasts) {
     throw new Error("Forecast data is required");
-  }
-
-  if (tournamentConfig.features?.allowResubmit === false) {
-    const participantData = await getParticipant(
-      participantId,
-      tournamentConfig,
-    );
-    const alreadySubmitted = participantData.submissions.some((submission) =>
-      challengeMatchesSubmission(submission, challenge),
-    );
-
-    if (alreadySubmitted) {
-      throw new Error(
-        "This challenge has already been submitted. Amendments are disabled for this tournament.",
-      );
-    }
   }
 
   // Convert to array if single forecast object (backward compatibility)
