@@ -708,8 +708,6 @@ const NSSPView = ({ location, data, metadata }) => {
 
   return (
     <Stack gap="lg">
-      <Title order={2}>NSSP Surveillance Data</Title>
-
       {locationMessage ? (
         <Alert
           icon={<IconAlertTriangle size={16} />}
@@ -735,7 +733,8 @@ const NSSPView = ({ location, data, metadata }) => {
         )}
         {!isUnitedStates && !isStatewide && (
           <Button
-            variant="subtle"
+            variant="light"
+            leftSection={<IconArrowLeft size={16} />}
             onClick={() => {
               setSelectedCounty(null);
               handleLocationSelect(`${stateAbbreviation}_All`);

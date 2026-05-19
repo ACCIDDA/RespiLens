@@ -504,7 +504,30 @@ const DataVisualizationContainer = () => {
       buttonLabel: "About NSSP Data",
       content: (
         <>
-          <p>write write write</p>
+          <p>
+            Data for the RespiLens NSSP view comes from the CDC's{" "}
+            <a
+              href="https://www.cdc.gov/nssp/index.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              National Syndromic Surveillance Program,
+            </a>{" "}
+            which integrates data from many sources to help consolidate
+            complete, accurate, and timely health data. Syndromic surveillance
+            is a collaborative effort among local and state health departments,
+            CDC, and partners.
+          </p>
+          <div>
+            <Title order={4} mb="xs">
+              Data
+            </Title>
+            <p>
+              RespiLens' display of NSSP data shows percent of hospital visits
+              attributable to RSV, COVID-19, and influenza across 49 states +
+              Washington D.C.; where 25 states have county-level visualization.
+            </p>
+          </div>
         </>
       ),
     },
