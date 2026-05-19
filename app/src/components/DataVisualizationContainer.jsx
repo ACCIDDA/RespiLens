@@ -524,7 +524,7 @@ const DataVisualizationContainer = () => {
             </Title>
             <p>
               RespiLens' display of NSSP data shows percent of hospital visits
-              attributable to RSV, COVID-19, and influenza across 49 states +
+              attributable to RSV, COVID-19, and influenza across 50 states +
               Washington D.C.; where 25 states have county-level visualization.
             </p>
           </div>
