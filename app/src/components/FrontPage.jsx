@@ -1,8 +1,17 @@
 import { SimpleGrid, Stack, Title, Paper, Anchor } from "@mantine/core";
 import PathogenOverviewGraph from "./PathogenOverviewGraph";
 import NHSNOverviewGraph from "./NHSNOverviewGraph";
+import NSSPOverviewGraph from "./NSSPOverviewGraph";
 import Announcement from "./Announcement";
 import { useView } from "../hooks/useView";
+
+const normalizeFrontPageLocation = (location) => {
+  if (!location || location === "US_All") {
+    return "US";
+  }
+
+  return location.includes("_") ? location.split("_")[0] : location;
+};
 
 const MyPlotsLink = () => {
   return (
@@ -48,6 +57,7 @@ const MetroCastLink = () => {
 
 const FrontPage = () => {
   const { selectedLocation } = useView();
+  const overviewLocation = normalizeFrontPageLocation(selectedLocation);
 
   return (
     <Stack>
@@ -81,26 +91,27 @@ const FrontPage = () => {
             <PathogenOverviewGraph
               viewType="covid_forecasts"
               title="COVID-19"
-              location={selectedLocation}
+              location={overviewLocation}
             />
             <PathogenOverviewGraph
               viewType="flu_forecasts"
               title="Flu"
-              location={selectedLocation}
+              location={overviewLocation}
             />
             <PathogenOverviewGraph
               viewType="rsv_forecasts"
               title="RSV"
-              location={selectedLocation}
+              location={overviewLocation}
             />
           </SimpleGrid>
         </Stack>
       </Paper>
       <Paper shadow="sm" p="lg" radius="md" withBorder>
         <Stack gap="md">
-          <Title order={3}>Explore surveillance data</Title>
+          <Title order={3}>Explore surveillance data by source</Title>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-            <NHSNOverviewGraph location={selectedLocation} />
+            <NHSNOverviewGraph location={overviewLocation} />
+            <NSSPOverviewGraph />
           </SimpleGrid>
         </Stack>
       </Paper>

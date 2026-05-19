@@ -42,7 +42,12 @@ export const useForecastData = (location, viewType) => {
       setError(null);
       setData(null);
       setMetadata(null);
+      setAvailableDates([]);
+      setModels([]);
       setAvailableTargets([]);
+      setModelsByTarget({});
+      setAvailablePeakDates([]);
+      setAvailablePeakModels([]);
 
       try {
         const datasetMap = {
@@ -55,6 +60,7 @@ export const useForecastData = (location, viewType) => {
           },
           rsv_forecasts: { directory: "rsvforecasthub", suffix: "rsv" },
           nhsnall: { directory: "nhsn", suffix: "nhsn" },
+          nsspall: { directory: "nssp", suffix: "nssp" },
           metrocast_forecasts: {
             directory: "flumetrocast",
             suffix: "flu_metrocast",
@@ -64,8 +70,13 @@ export const useForecastData = (location, viewType) => {
         const datasetConfig = datasetMap[viewType];
         if (!datasetConfig) throw new Error(`Unknown view type: ${viewType}`);
 
+        const resolvedLocation =
+          viewType === "nsspall" && location && !location.includes("_")
+            ? `${location}_All`
+            : location;
+
         const dataPath = getDataPath(
-          `${datasetConfig.directory}/${location}_${datasetConfig.suffix}.json`,
+          `${datasetConfig.directory}/${resolvedLocation}_${datasetConfig.suffix}.json`,
         );
         const metadataPath = getDataPath(
           `${datasetConfig.directory}/metadata.json`,
@@ -125,6 +136,10 @@ export const useForecastData = (location, viewType) => {
             modelsByTargetState[target] = Array.from(modelSet).sort();
           }
           setModelsByTarget(modelsByTargetState);
+        }
+
+        if (jsonData?.series?.dates) {
+          setAvailableDates(jsonData.series.dates);
         }
 
         let targets = [];

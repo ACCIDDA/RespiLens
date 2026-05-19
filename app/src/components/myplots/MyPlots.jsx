@@ -19,6 +19,8 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { getSavedPlots, deletePlot } from "../../utils/plotStorage";
+import { fetchNsspLocationLabel } from "../../utils/nsspGeo";
+import { resolvePlotLocationDisplayName } from "../../utils/plotLocationDisplay";
 import MiniPlot from "./MiniPlot";
 import Seo from "../Seo";
 import { getDatasetTitleFromView } from "../../utils/datasetUtils";
@@ -34,11 +36,46 @@ const normalizeLabel = (value = "") =>
 const MyPlots = () => {
   const [userSavedPlots, setUserSavedPlots] = useState([]);
   const [plotMetadata, setPlotMetadata] = useState({});
+  const [plotLocationLabels, setPlotLocationLabels] = useState({});
 
   useEffect(() => {
     const plots = getSavedPlots();
     setUserSavedPlots(plots);
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadNsspLabels = async () => {
+      const nsspPlots = userSavedPlots.filter(
+        (plot) => plot.viewType === "nsspall" && plot.settings?.location,
+      );
+
+      if (nsspPlots.length === 0) {
+        if (isActive) {
+          setPlotLocationLabels({});
+        }
+        return;
+      }
+
+      const resolvedEntries = await Promise.all(
+        nsspPlots.map(async (plot) => [
+          plot.id,
+          await fetchNsspLocationLabel(plot.settings.location),
+        ]),
+      );
+
+      if (isActive) {
+        setPlotLocationLabels(Object.fromEntries(resolvedEntries));
+      }
+    };
+
+    loadNsspLabels();
+
+    return () => {
+      isActive = false;
+    };
+  }, [userSavedPlots]);
 
   const handleDelete = (id) => {
     if (deletePlot(id)) {
@@ -97,11 +134,38 @@ const MyPlots = () => {
       ) {
         return current;
       }
+
       return {
         ...current,
         [plotId]: metadata,
       };
     });
+  };
+
+  const getPlotLocationLabel = (plot) => {
+    if (plot.locationDisplayName) {
+      return plot.locationDisplayName;
+    }
+
+    if (plotMetadata[plot.id]?.location_name) {
+      return plotMetadata[plot.id].location_name;
+    }
+
+    if (plot.viewType === "nsspall") {
+      return plotLocationLabels[plot.id] || plot.settings.location;
+    }
+
+    if (plot.settings.location === "US") {
+      return "United States";
+    }
+
+    const resolvedLocation = resolvePlotLocationDisplayName(
+      plot.settings.location,
+    );
+
+    return resolvedLocation === plot.settings.location
+      ? plot.settings.location.toUpperCase()
+      : resolvedLocation;
   };
 
   const pageContainerStyle = {
@@ -196,7 +260,7 @@ const MyPlots = () => {
                   </Text>
                 </div>
                 <Badge variant="filled" size="lg" color="blue">
-                  {userSavedPlots.length} Saved
+                  {plotCount} Saved
                 </Badge>
               </Group>
             </Paper>
@@ -209,8 +273,7 @@ const MyPlots = () => {
               >
                 {userSavedPlots.map((plot) => {
                   const metadata = plotMetadata[plot.id];
-                  const locationName =
-                    metadata?.location_name || plot.settings.location;
+                  const locationName = getPlotLocationLabel(plot);
                   const pathogenLabel =
                     getDatasetTitleFromView(plot.viewType) ||
                     metadata?.dataset ||
@@ -305,8 +368,8 @@ const MyPlots = () => {
                           <MiniPlot
                             plot={plot}
                             plotHeight={gridConfig.plotHeight}
-                            onMetadataLoad={(metadata) =>
-                              handleMetadataLoad(plot.id, metadata)
+                            onMetadataLoad={(metadataForPlot) =>
+                              handleMetadataLoad(plot.id, metadataForPlot)
                             }
                           />
                         </Paper>

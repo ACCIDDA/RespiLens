@@ -36,4 +36,5 @@ python scripts/process_RespiLens_data.py \
   --rsv-hub-path "${SCRIPT_DIR}/rsv-forecast-hub" \
   --covid-hub-path "${SCRIPT_DIR}/covid19-forecast-hub" \
   --flu-metrocast-hub-path "${SCRIPT_DIR}/flu-metrocast" \
-  --NHSN
+  --NHSN \
+  --NSSP

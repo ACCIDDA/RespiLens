@@ -6,6 +6,13 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import requests
+import time 
+import logging 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+logger = logging.getLogger(__name__)
 
 # Import schema
 _current_dir = Path(__file__).parent
@@ -125,9 +132,38 @@ def get_location_info(
     else:
         return str(current_df[value_needed].iloc[0])
     
+def retrieve_data_from_endpoint_aslist(data_url: str) -> list[dict]:
+    """Downloads CDC data from API endpoint with pagination and retries."""
+        
+    session = requests.Session()
+    retries = Retry(total=5,
+                    backoff_factor=1,
+                    status_forcelist=[500, 502, 503, 504])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+    
+    all_data = []
+    offset = 0
+    batch_size = 1000
+    while True:
+        params = {"$limit": batch_size, "$offset": offset}
+        try:
+            # Use the configured session to make the request
+            data_response = session.get(data_url, params=params, timeout=30)
+            data_response.raise_for_status()
+            batch_data = data_response.json()
+            if not batch_data:
+                break
+            all_data.extend(batch_data)
+            offset += batch_size
+            time.sleep(0.1)
+        except Exception as e:
+            logger.error(f"Error downloading data: {str(e)}")
+            raise
+    return all_data
+    
 
 def save_json_file(
-        pathogen: Literal['flusight', 'flu', 'flusightforecasthub', 'rsv','covid','covid19','rsvforecasthub','covid19forecasthub','nhsn', 'flumetrocast', 'flumetrocasthub'],
+        pathogen: Literal['flusight', 'flu', 'flusightforecasthub', 'rsv','covid','covid19','rsvforecasthub','covid19forecasthub','nhsn', 'nssp', 'flumetrocast', 'flumetrocasthub'],
         output_path: str,
         output_filename: str,
         file_contents: dict,
@@ -157,6 +193,7 @@ def save_json_file(
         'covid19': 'covid19forecasthub',
         'covid19forecasthub': 'covid19forecasthub',
         'nhsn': 'nhsn',
+        'nssp': 'nssp',
         'flumetrocast': 'flumetrocast',
         'flumetrocashtub': 'flumetrocast',
     }
@@ -373,57 +410,113 @@ NHSN_COLUMN_MASKS = {
     ]
 }
 
+STATENAME_TO_ABBREVIATION_MAP = {
+    'Alabama': 'AL',
+    'Alaska': 'AK',
+    'Arizona': 'AZ',
+    'Arkansas': 'AR',
+    'California': 'CA',
+    'Colorado': 'CO',
+    'Connecticut': 'CT',
+    'Delaware': 'DE',
+    'District of Columbia': 'DC',
+    'Florida': 'FL',
+    'Georgia': 'GA',
+    'Hawaii': 'HI',
+    'Idaho': 'ID',
+    'Illinois': 'IL',
+    'Indiana': 'IN',
+    'Iowa': 'IA',
+    'Kansas': 'KS',
+    'Kentucky': 'KY',
+    'Louisiana': 'LA',
+    'Maine': 'ME',
+    'Maryland': 'MD',
+    'Massachusetts': 'MA',
+    'Michigan': 'MI',
+    'Minnesota': 'MN',
+    'Mississippi': 'MS',
+    'Missouri': 'MO',
+    'Montana': 'MT',
+    'Nebraska': 'NE',
+    'Nevada': 'NV',
+    'New Hampshire': 'NH',
+    'New Jersey': 'NJ',
+    'New Mexico': 'NM',
+    'New York': 'NY',
+    'North Carolina': 'NC',
+    'North Dakota': 'ND',
+    'Ohio': 'OH',
+    'Oklahoma': 'OK',
+    'Oregon': 'OR',
+    'Pennsylvania': 'PA',
+    'Rhode Island': 'RI',
+    'South Carolina': 'SC',
+    'South Dakota': 'SD',
+    'Tennessee': 'TN',
+    'Texas': 'TX',
+    'United States': 'US',
+    'Utah': 'UT',
+    'Vermont': 'VT',
+    'Virginia': 'VA',
+    'Washington': 'WA',
+    'West Virginia': 'WV',
+    'Wisconsin': 'WI',
+    'Wyoming': 'WY'
+ }
 
-LOCATIONS_MAP = {'US': 'US',
- 'AL': '01',
- 'AK': '02',
- 'AZ': '04',
- 'AR': '05',
- 'CA': '06',
- 'CO': '08',
- 'CT': '09',
- 'DE': '10',
- 'DC': '11',
- 'FL': '12',
- 'GA': '13',
- 'HI': '15',
- 'ID': '16',
- 'IL': '17',
- 'IN': '18',
- 'IA': '19',
- 'KS': '20',
- 'KY': '21',
- 'LA': '22',
- 'ME': '23',
- 'MD': '24',
- 'MA': '25',
- 'MI': '26',
- 'MN': '27',
- 'MS': '28',
- 'MO': '29',
- 'MT': '30',
- 'NE': '31',
- 'NV': '32',
- 'NH': '33',
- 'NJ': '34',
- 'NM': '35',
- 'NY': '36',
- 'NC': '37',
- 'ND': '38',
- 'OH': '39',
- 'OK': '40',
- 'OR': '41',
- 'PA': '42',
- 'RI': '44',
- 'SC': '45',
- 'SD': '46',
- 'TN': '47',
- 'TX': '48',
- 'UT': '49',
- 'VT': '50',
- 'VA': '51',
- 'WA': '53',
- 'WV': '54',
- 'WI': '55',
- 'WY': '56',
- 'PR': '72'}
+STATEABBREVIATION_TO_FIPS_MAP = {
+    'US': 'US',
+    'AL': '01',
+    'AK': '02',
+    'AZ': '04',
+    'AR': '05',
+    'CA': '06',
+    'CO': '08',
+    'CT': '09',
+    'DE': '10',
+    'DC': '11',
+    'FL': '12',
+    'GA': '13',
+    'HI': '15',
+    'ID': '16',
+    'IL': '17',
+    'IN': '18',
+    'IA': '19',
+    'KS': '20',
+    'KY': '21',
+    'LA': '22',
+    'ME': '23',
+    'MD': '24',
+    'MA': '25',
+    'MI': '26',
+    'MN': '27',
+    'MS': '28',
+    'MO': '29',
+    'MT': '30',
+    'NE': '31',
+    'NV': '32',
+    'NH': '33',
+    'NJ': '34',
+    'NM': '35',
+    'NY': '36',
+    'NC': '37',
+    'ND': '38',
+    'OH': '39',
+    'OK': '40',
+    'OR': '41',
+    'PA': '42',
+    'RI': '44',
+    'SC': '45',
+    'SD': '46',
+    'TN': '47',
+    'TX': '48',
+    'UT': '49',
+    'VT': '50',
+    'VA': '51',
+    'WA': '53',
+    'WV': '54',
+    'WI': '55',
+    'WY': '56',
+    'PR': '72'
+}

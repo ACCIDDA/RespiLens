@@ -30,7 +30,7 @@ export const DATASETS = {
     hasDateSelector: true,
     hasModelSelector: true,
     prefix: "rsv",
-    dataPath: "rsv",
+    dataPath: "rsvforecasthub",
     targetLineDayOfWeek: 3, // Wednesday (0=Sunday, 3=Wednesday)
   },
   covid: {
@@ -43,7 +43,7 @@ export const DATASETS = {
     hasDateSelector: true,
     hasModelSelector: true,
     prefix: "covid",
-    dataPath: "covid19",
+    dataPath: "covid19forecasthub",
     targetLineDayOfWeek: 3, // Wednesday (0=Sunday, 3=Wednesday)
   },
   nhsn: {
@@ -73,6 +73,19 @@ export const DATASETS = {
     prefix: "metrocast",
     dataPath: "flumetrocast",
     targetLineDayOfWeek: 3,
+  },
+  nssp: {
+    shortName: "nssp",
+    fullName: "NSSP Surveillance Data",
+    titleName: "NSSP Surveillance Data",
+    views: [{ key: "all", label: "All Data", value: "nsspall" }],
+    defaultView: "nsspall",
+    defaultLocation: "US_All",
+    defaultColumn: "TO DO",
+    hasDateSelector: false,
+    hasModelSelector: false,
+    prefix: "nssp",
+    dataPath: "nssp",
   },
 };
 
