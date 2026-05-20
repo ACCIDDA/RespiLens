@@ -680,15 +680,15 @@ const ReportingDelayPage = () => {
               <Title order={3}>Introduction</Title>
               <Text c="dimmed">
                 Do you need nowcasting ? What does your reporting delay
-                distrubution look like ? Let's dive into that using this little
+                distribution look like ? Let's dive into that using this little
                 app. Nothing leave your computer (say how to check). So upload a
-                data with some columns indicating the refrence date of an event,
-                the report date when it was reported, and the value reported.
-                Optionally you can have other columns like location, age group,
-                or target type to filter the data. You'll see your reporting
-                distrubtion and the so called reporting triangle introduced by
-                (probably Kaitlyn Johnson et al. but really i need to check
-                this). This For any deeper dive open the link below to
+                data with some columns indicating the reference date of an
+                event, the report date when it was reported, and the value
+                reported. Optionally you can have other columns like location,
+                age group, or target type to filter the data. You'll see your
+                reporting distribution and the so called reporting triangle
+                introduced by (probably Kaitlyn Johnson et al. but really i need
+                to check this). This For any deeper dive open the link below to
                 epinowcast on which this work is based.
               </Text>
               <Group gap="xs">
@@ -1159,7 +1159,7 @@ const ReportingDelayPage = () => {
                       >
                         <List.Item>Simple: use baselinenowcast</List.Item>
                         <List.Item>
-                          Better but more complex: use epinowcast (tood link)
+                          Better but more complex: use epinowcast (todo link)
                         </List.Item>
                         <List.Item>(both use the same data format)</List.Item>
                         <List.Item>

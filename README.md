@@ -2,7 +2,7 @@
 Authors: **Emily Przykucki**, Joseph Lemaitre, and others within ACCIDDA, the Atlantic Coast Center for Infectious Disease Dynamics and Analytics.
 
 * **stable version** https://www.RespiLens.com
-* **new features are developped on** https://staging.RespiLens.com, [GitHub](https://github.com/ACCIDDA/RespiLens-staging)
+* **new features are developed on** https://staging.RespiLens.com, [GitHub](https://github.com/ACCIDDA/RespiLens-staging)
 
 RespiLens is a responsive web app to visualize respiratory disease forecasts in the US, focused on accessibility for state health departments and the general public. The RSV, COVID-19 and flu views pull from CDC forecast hubs (collectively known as the Hubverse: [rsv-forecast-hub](https://github.com/CDCgov/rsv-forecast-hub), [covid19-forecast-hub](https://github.com/CDCgov/covid19-forecast-hub), and [FluSight-forecast-hub](https://github.com/cdcepi/FluSight-forecast-hub)), and consolidate pathogen data by location and date into one user-friendly plot. While other visualization tools for FluSight/RSV/COVID-19 Hubverse data may exist, many of them are geared towards academics instead of state health departments and the public, making them less accessible to people who need them. Our goal is to make a dashboard with these users in mind. Presently, RespiLens offers these features:
 - **Ability to link a certain view to a URL to share a forecast.** Select a pathogen, a location, and date(s), and then click the "Share View" button to copy the URL with your settings.
@@ -10,7 +10,7 @@ RespiLens is a responsive web app to visualize respiratory disease forecasts in 
 - Ability to choose any number of dates to visualize on your plot
 - Ability to choose any number of contributing models to visualize on your plot
 - A view with National Healthcare Safety Network data, plotting almost 300 data categories (e.g., Number of Adult COVID-19 Admissions, or Percent Inpatient Beds Occupied by RSV Patients) 
-- **Forecastle**, a daily disease forecasting game, where you can attempt to predict hospitalizations counts for a specific senario and then get scored against participating models.
+- **Forecastle**, a daily disease forecasting game, where you can attempt to predict hospitalizations counts for a specific scenario and then get scored against participating models.
 - **MyRespiLens**, where you can visualize your own data for a specific location without the file leaving your machine.
 
 
