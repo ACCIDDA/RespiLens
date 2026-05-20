@@ -37,7 +37,6 @@ const MetroCastLink = () => {
     e.preventDefault();
     setViewType("metrocast_forecasts");
   };
-
   return (
     <span>
       RespiLens now displays{" "}
@@ -55,12 +54,37 @@ const MetroCastLink = () => {
   );
 };
 
+const NsspViewLink = () => {
+  return (
+    <span>
+      Check out our new{" "}
+      <Anchor
+        href="/?view=nsspall"
+        fw={700}
+        c="blue.7"
+        style={{ fontSize: "inherit", verticalAlign: "baseline" }}
+      >
+        NSSP view
+      </Anchor>{" "}
+      to visualize the CDC's National Syndromic Surveillance Program
+      county-level data stream.
+    </span>
+  );
+};
+
 const FrontPage = () => {
   const { selectedLocation } = useView();
   const overviewLocation = normalizeFrontPageLocation(selectedLocation);
 
   return (
     <Stack>
+      <Announcement
+        id="new-nssp-all-view"
+        startDate="2026-05-20"
+        endDate="2026-07-15"
+        announcementType="update"
+        text={<NsspViewLink />}
+      />
       <Announcement
         id="new-metrocast-2026"
         startDate="2026-02-01"
@@ -77,7 +101,7 @@ const FrontPage = () => {
       />
       <Announcement
         id={"hub-seasonal-warning"}
-        startDate={"2026-05-31"}
+        startDate={"2026-06-01"}
         endDate={"2026-11-10"}
         announcementType={"alert"}
         text={
