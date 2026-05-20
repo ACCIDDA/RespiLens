@@ -30,27 +30,20 @@ const MyPlotsLink = () => {
   );
 };
 
-const MetroCastLink = () => {
-  const { setViewType } = useView();
-
-  const handleClick = (e) => {
-    e.preventDefault();
-    setViewType("metrocast_forecasts");
-  };
-
+const NsspViewLink = () => {
   return (
     <span>
-      RespiLens now displays{" "}
+      Check out our new{" "}
       <Anchor
-        component="button"
-        onClick={handleClick}
+        href="/?view=nsspall"
         fw={700}
         c="blue.7"
         style={{ fontSize: "inherit", verticalAlign: "baseline" }}
       >
-        flu MetroCast forecasts;
+        NSSP view
       </Anchor>{" "}
-      metro area-level flu forecasts.
+      to visualize the CDC's National Syndromic Surveillance Program
+      county-level data stream.
     </span>
   );
 };
@@ -62,11 +55,11 @@ const FrontPage = () => {
   return (
     <Stack>
       <Announcement
-        id="new-metrocast-2026"
-        startDate="2026-02-01"
-        endDate="2026-04-15"
-        announcementType={"update"}
-        text={<MetroCastLink />}
+        id="new-nssp-all-view"
+        startDate="2026-05-20"
+        endDate="2026-07-15"
+        announcementType="update"
+        text={<NsspViewLink />}
       />
       <Announcement
         id="new-myplots-feature"
@@ -77,7 +70,7 @@ const FrontPage = () => {
       />
       <Announcement
         id={"hub-seasonal-warning"}
-        startDate={"2026-05-31"}
+        startDate={"2026-06-01"}
         endDate={"2026-11-10"}
         announcementType={"alert"}
         text={
