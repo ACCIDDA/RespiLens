@@ -1,8 +1,17 @@
 import { SimpleGrid, Stack, Title, Paper, Anchor } from "@mantine/core";
 import PathogenOverviewGraph from "./PathogenOverviewGraph";
 import NHSNOverviewGraph from "./NHSNOverviewGraph";
+import NSSPOverviewGraph from "./NSSPOverviewGraph";
 import Announcement from "./Announcement";
 import { useView } from "../hooks/useView";
+
+const normalizeFrontPageLocation = (location) => {
+  if (!location || location === "US_All") {
+    return "US";
+  }
+
+  return location.includes("_") ? location.split("_")[0] : location;
+};
 
 const MyPlotsLink = () => {
   return (
@@ -21,42 +30,36 @@ const MyPlotsLink = () => {
   );
 };
 
-const MetroCastLink = () => {
-  const { setViewType } = useView();
-
-  const handleClick = (e) => {
-    e.preventDefault();
-    setViewType("metrocast_forecasts");
-  };
-
+const NsspViewLink = () => {
   return (
     <span>
-      RespiLens now displays{" "}
+      Check out our new{" "}
       <Anchor
-        component="button"
-        onClick={handleClick}
+        href="/?view=nsspall"
         fw={700}
         c="blue.7"
         style={{ fontSize: "inherit", verticalAlign: "baseline" }}
       >
-        flu MetroCast forecasts;
+        NSSP view
       </Anchor>{" "}
-      metro area-level flu forecasts.
+      to visualize the CDC's National Syndromic Surveillance Program
+      county-level data stream.
     </span>
   );
 };
 
 const FrontPage = () => {
   const { selectedLocation } = useView();
+  const overviewLocation = normalizeFrontPageLocation(selectedLocation);
 
   return (
     <Stack>
       <Announcement
-        id="new-metrocast-2026"
-        startDate="2026-02-01"
-        endDate="2026-04-15"
-        announcementType={"update"}
-        text={<MetroCastLink />}
+        id="new-nssp-all-view"
+        startDate="2026-05-20"
+        endDate="2026-07-15"
+        announcementType="update"
+        text={<NsspViewLink />}
       />
       <Announcement
         id="new-myplots-feature"
@@ -67,7 +70,7 @@ const FrontPage = () => {
       />
       <Announcement
         id={"hub-seasonal-warning"}
-        startDate={"2026-05-31"}
+        startDate={"2026-06-01"}
         endDate={"2026-11-10"}
         announcementType={"alert"}
         text={
@@ -81,26 +84,27 @@ const FrontPage = () => {
             <PathogenOverviewGraph
               viewType="covid_forecasts"
               title="COVID-19"
-              location={selectedLocation}
+              location={overviewLocation}
             />
             <PathogenOverviewGraph
               viewType="flu_forecasts"
               title="Flu"
-              location={selectedLocation}
+              location={overviewLocation}
             />
             <PathogenOverviewGraph
               viewType="rsv_forecasts"
               title="RSV"
-              location={selectedLocation}
+              location={overviewLocation}
             />
           </SimpleGrid>
         </Stack>
       </Paper>
       <Paper shadow="sm" p="lg" radius="md" withBorder>
         <Stack gap="md">
-          <Title order={3}>Explore surveillance data</Title>
+          <Title order={3}>Explore surveillance data by source</Title>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-            <NHSNOverviewGraph location={selectedLocation} />
+            <NHSNOverviewGraph location={overviewLocation} />
+            <NSSPOverviewGraph />
           </SimpleGrid>
         </Stack>
       </Paper>

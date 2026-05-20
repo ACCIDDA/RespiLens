@@ -332,7 +332,7 @@ const Documentation = () => {
               successfully build a RespiLens projections JSON file. The
               conversion pipeline's shortlist of requirements is below. Please
               note that if you pulled your data directly from a Hubverse hub{" "}
-              <code>.csv</code> file, it likley already conforms to conversion
+              <code>.csv</code> file, it likely already conforms to conversion
               requirements and you can skip to the next step!
             </Text>
             <Text>

@@ -32,6 +32,10 @@ import {
   getChallengeById,
   getChallengeByNumber,
   areAllChallengesCompleted,
+  shouldMaskChallengeYear,
+  shouldMaskPathogen,
+  getMaskedForecastDate,
+  getChallengeDatasetLabel,
 } from "./tournament";
 
 // Visualization and chart settings
@@ -50,6 +54,10 @@ export {
   getChallengeById,
   getChallengeByNumber,
   areAllChallengesCompleted,
+  shouldMaskChallengeYear,
+  shouldMaskPathogen,
+  getMaskedForecastDate,
+  getChallengeDatasetLabel,
 };
 export { CHART_CONFIG };
 

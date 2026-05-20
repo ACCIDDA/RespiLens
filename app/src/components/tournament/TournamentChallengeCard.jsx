@@ -22,7 +22,11 @@ import {
 } from "@tabler/icons-react";
 import { useForecastData } from "../../hooks/useForecastData";
 import { submitForecast, getParticipant } from "../../utils/tournamentAPI";
-import { TOURNAMENT_CONFIG } from "../../config";
+import {
+  TOURNAMENT_CONFIG,
+  getChallengeDatasetLabel,
+  getMaskedForecastDate,
+} from "../../config";
 import {
   initialiseForecastInputs,
   convertToIntervals,
@@ -53,6 +57,8 @@ const TournamentChallengeCard = ({
   const [inputMode, setInputMode] = useState("median"); // 'median' or 'intervals'
   const [existingSubmission, setExistingSubmission] = useState(null);
   const [zoomedView, setZoomedView] = useState(true); // Start with zoomed view
+  const isSubmissionLocked =
+    tournamentConfig.features?.allowResubmit === false && isCompleted;
 
   // Map dataset to viewType
   const getViewType = (dataset) => {
@@ -184,6 +190,10 @@ const TournamentChallengeCard = ({
 
   // Handle forecast adjustments
   const handleMedianAdjust = (index, field, value) => {
+    if (isSubmissionLocked) {
+      return;
+    }
+
     setForecastEntries((prevEntries) =>
       prevEntries.map((entry, idx) => {
         if (idx !== index) return entry;
@@ -241,6 +251,13 @@ const TournamentChallengeCard = ({
   // Handle submission with WIS scoring
   const handleSubmit = async () => {
     setError(null);
+
+    if (isSubmissionLocked) {
+      setError(
+        "This challenge has already been submitted. Amendments are disabled for this tournament.",
+      );
+      return;
+    }
 
     // Validate that forecastEntries is properly populated
     if (!forecastEntries || forecastEntries.length === 0) {
@@ -338,7 +355,7 @@ const TournamentChallengeCard = ({
 
           <Group spacing="xs" mt="xs">
             <Badge size="sm" variant="outline">
-              {challenge.dataset.toUpperCase()}
+              {getChallengeDatasetLabel(challenge, tournamentConfig)}
             </Badge>
             <Badge size="sm" variant="outline">
               {challenge.location}
@@ -385,6 +402,11 @@ const TournamentChallengeCard = ({
       >
         <Stack spacing="md">
           <Text color="dimmed">{challenge.description}</Text>
+          <Text size="xs" c="dimmed">
+            Forecast date:{" "}
+            {getMaskedForecastDate(challenge.forecastDate, tournamentConfig)} •{" "}
+            {challenge.displayName}
+          </Text>
 
           {error && (
             <Alert
@@ -393,6 +415,13 @@ const TournamentChallengeCard = ({
               color="red"
             >
               {error}
+            </Alert>
+          )}
+
+          {isSubmissionLocked && (
+            <Alert icon={<IconCheck size={16} />} title="Challenge submitted">
+              Amendments are disabled for this tournament. Your submitted
+              forecast is shown below, but it cannot be changed.
             </Alert>
           )}
 
@@ -447,6 +476,9 @@ const TournamentChallengeCard = ({
                   height={400}
                   showIntervals={inputMode === "intervals"}
                   zoomedView={zoomedView}
+                  dateLabelFormatter={(date) =>
+                    getMaskedForecastDate(date, tournamentConfig)
+                  }
                 />
               </Box>
 
@@ -462,6 +494,7 @@ const TournamentChallengeCard = ({
                 onChange={setForecastEntries}
                 maxValue={yAxisMax}
                 mode={inputMode}
+                disabled={isSubmissionLocked}
               />
             </>
           )}
@@ -477,6 +510,7 @@ const TournamentChallengeCard = ({
                 <Button
                   onClick={() => setInputMode("intervals")}
                   rightSection="→"
+                  disabled={isSubmissionLocked}
                 >
                   Next: Set Intervals
                 </Button>
@@ -485,6 +519,7 @@ const TournamentChallengeCard = ({
                   onClick={handleSubmit}
                   loading={submitting}
                   color="green"
+                  disabled={isSubmissionLocked}
                 >
                   Submit Forecast
                 </Button>

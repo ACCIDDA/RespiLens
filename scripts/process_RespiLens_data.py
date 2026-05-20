@@ -12,6 +12,7 @@ from hubdata.create_target_data_schema import TargetType
 
 from processors import FlusightDataProcessor, RSVDataProcessor, COVIDDataProcessor, FluMetrocastDataProcessor
 from nhsn_data_processor import NHSNDataProcessor
+from nssp_data_processor import NSSPDataProcessor
 from helper import save_json_file, hubverse_df_preprocessor, clean_nan_values
 
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +29,7 @@ def main():
     parser = argparse.ArgumentParser(description = 'Pull/process all data required for RespiLens.')
     parser.add_argument("--output-path",
                         type=str,
-                        required=False,
+                        required=True,
                         help="Absolute path where you want to save data do.")
     parser.add_argument("--flusight-hub-path",
                         type=str,
@@ -50,9 +51,13 @@ def main():
                         action='store_true',
                         required=False,
                         help="If set, pull NHSN data.") 
+    parser.add_argument("--NSSP",
+                        action='store_true',
+                        required=False,
+                        help="If set, pull NSSP data.")
     args = parser.parse_args()
 
-    if not (args.flusight_hub_path or args.rsv_hub_path or args.covid_hub_path or args.NHSN or args.flu_metrocast_hub_path):
+    if not (args.flusight_hub_path or args.rsv_hub_path or args.covid_hub_path or args.NHSN or args.flu_metrocast_hub_path or args.NSSP):
         print("🛑 No hub paths or NHSN flag provided 🛑, so no data will be fetched.")
         print("Please re-run script with hub path(s) specified or NHSN flag set.")
         sys.exit(1)
@@ -143,7 +148,7 @@ def main():
     
     if args.flu_metrocast_hub_path:
         # Use HubdataPy to get all flu-metrocast data in one df
-        logger.info("Establishing conneciton to local flu metrocast repository...")
+        logger.info("Establishing connection to local flu metrocast repository...")
         flu_metrocast_hub_conn = connect_hub(args.flu_metrocast_hub_path)
         logger.info("Success ✅")
         logger.info("Collecting data from flu metrocast repo...")
@@ -151,7 +156,7 @@ def main():
         flu_metrocast_locations_data = clean_nan_values(pd.read_csv(Path(args.flu_metrocast_hub_path) / 'auxiliary-data/locations.csv')) # DEP: metrocast still pulls hub locations.csv
         flu_metrocast_target_data = clean_nan_values(connect_target_data(hub_path=args.flu_metrocast_hub_path, target_type=TargetType.TIME_SERIES).to_table().to_pandas())
         logger.info("Success ✅")
-        # Initialize converter oject
+        # Initialize converter object
         flu_metrocast_processor_object = FluMetrocastDataProcessor(
             data=flu_metrocast_hubverse_df,
             locations_data=flu_metrocast_locations_data,
@@ -181,6 +186,27 @@ def main():
                 overwrite=True
             )
         logger.info("Success ✅")
+
+    if args.NSSP:
+        NSSP_processor_object = NSSPDataProcessor(resource_id='rdmq-nq56')
+        logger.info("Iteratively saving NSSP JSON files...")
+        for filename, contents in NSSP_processor_object.output_dict.items():
+            save_json_file(
+                pathogen="nssp",
+                output_path=args.output_path,
+                output_filename=filename,
+                file_contents=contents,
+                overwrite=True
+            )
+        logger.info("Success ✅")
+        # save the location info we need to save (for easier frontend processing w/ schematic map of states)
+        save_json_file(
+            pathogen="nssp",
+            output_path=args.output_path,
+            output_filename="location_info.json",
+            file_contents = NSSP_processor_object.output_dict["location_info.json"],
+            overwrite=True
+        )
     
     logger.info("Process complete.")
 

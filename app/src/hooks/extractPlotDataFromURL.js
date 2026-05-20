@@ -1,4 +1,13 @@
 import { savePlot } from "../utils/plotStorage";
+import { resolvePlotLocationDisplayName } from "../utils/plotLocationDisplay";
+
+const NSSP_COLUMN_LABELS = {
+  percent_visits_covid: "COVID-19",
+  percent_visits_influenza: "Influenza",
+  percent_visits_rsv: "RSV",
+};
+
+const NSSP_DEFAULT_COLUMNS = Object.keys(NSSP_COLUMN_LABELS);
 
 /**
  * Parses the current URL and viewType to extract a serialized state
@@ -25,6 +34,7 @@ export const extractPlotData = (viewType, href, data) => {
   let scale = "";
   let intervals = [];
   let viewDisplayName = "";
+  let locationDisplayName = "";
 
   // forecast views set date dynamically if it is the default date (not present in URL)
   switch (viewType) {
@@ -207,6 +217,38 @@ export const extractPlotData = (viewType, href, data) => {
       break;
     }
 
+    case "nsspall": {
+      dataSuffix = "nssp";
+      location = params.has("location") ? params.get("location") : "US_All";
+      fileName = `${location}_${dataSuffix}.json`;
+      fullDataPath = `nssp/${fileName}`;
+      target = "Percent of visits";
+      const nsspColumnsFromUrl = params.getAll("nssp_cols");
+      const availableColumns = Object.keys(data?.series || {}).filter(
+        (key) => key !== "dates" && key,
+      );
+      const validUrlColumns = nsspColumnsFromUrl.filter((column) =>
+        availableColumns.includes(column),
+      );
+      const isExplicitlyEmpty = nsspColumnsFromUrl.includes("none");
+
+      if (validUrlColumns.length > 0) {
+        columns = validUrlColumns;
+      } else if (isExplicitlyEmpty) {
+        columns = [];
+      } else {
+        const defaultColumns = NSSP_DEFAULT_COLUMNS.filter((column) =>
+          availableColumns.includes(column),
+        );
+        columns = defaultColumns.length > 0 ? defaultColumns : availableColumns;
+      }
+
+      dates = [currentDate];
+      scale = params.has("scale") ? params.get("scale") : "linear";
+      viewDisplayName = "NSSP Data";
+      break;
+    }
+
     default:
       throw new Error(`Unknown view type: ${viewType}`);
   }
@@ -220,6 +262,8 @@ export const extractPlotData = (viewType, href, data) => {
     dataSuffix,
     fileName,
     fullDataPath,
+    locationDisplayName:
+      locationDisplayName || resolvePlotLocationDisplayName(location, data),
     settings: {
       location,
       target,

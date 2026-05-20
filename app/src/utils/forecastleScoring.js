@@ -89,7 +89,7 @@ export const calculateWIS = (
   lower95,
   upper95,
 ) => {
-  if (!Number.isFinite(observed)) {
+  if (!Number.isFinite(observed) || !Number.isFinite(median)) {
     return null;
   }
 
@@ -101,35 +101,40 @@ export const calculateWIS = (
     return null;
   }
 
-  // Median absolute error (treated as 0-width interval)
-  const medianAE = Number.isFinite(median) ? Math.abs(observed - median) : 0;
+  const medianAE = Math.abs(observed - median);
 
-  // Weights: alpha/2 for each interval, 0.5 for median
-  // Total weight = 0.25 + 0.025 + 0.5 = 0.775
+  // Weights match scoringutils::wis(..., weigh = TRUE,
+  // count_median_twice = FALSE), normalized by K + 0.5.
   const weight50 = 0.5 / 2; // 0.25
   const weight95 = 0.05 / 2; // 0.025
   const weightMedian = 0.5; // 0.5
+  const normalizer = 2 + 0.5; // two central intervals plus median half-weight
 
   // Weighted sum
-  const totalWeight = weight50 + weight95 + weightMedian;
   const wis =
     (weight50 * interval50.score +
       weight95 * interval95.score +
       weightMedian * medianAE) /
-    totalWeight;
+    normalizer;
 
   // Aggregate components
   const dispersion =
     (weight50 * interval50.dispersion + weight95 * interval95.dispersion) /
-    totalWeight;
+    normalizer;
+  const medianUnderprediction =
+    observed > median ? (weightMedian * (observed - median)) / normalizer : 0;
+  const medianOverprediction =
+    observed < median ? (weightMedian * (median - observed)) / normalizer : 0;
   const underprediction =
-    (weight50 * interval50.underprediction +
-      weight95 * interval95.underprediction) /
-    totalWeight;
-  const overprediction =
     (weight50 * interval50.overprediction +
       weight95 * interval95.overprediction) /
-    totalWeight;
+      normalizer +
+    medianUnderprediction;
+  const overprediction =
+    (weight50 * interval50.underprediction +
+      weight95 * interval95.underprediction) /
+      normalizer +
+    medianOverprediction;
 
   return {
     wis,
@@ -303,6 +308,15 @@ export const scoreModels = (modelForecasts, horizons, groundTruthValues) => {
         upper50 === null ||
         lower95 === null ||
         upper95 === null
+      ) {
+        return null;
+      }
+
+      if (
+        lower95 > lower50 ||
+        lower50 > median ||
+        median > upper50 ||
+        upper50 > upper95
       ) {
         return null;
       }

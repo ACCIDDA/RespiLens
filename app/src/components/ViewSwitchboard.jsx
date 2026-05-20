@@ -5,6 +5,7 @@ import MetroCastView from "./views/MetroCastView";
 import RSVView from "./views/RSVView";
 import COVID19View from "./views/COVID19View";
 import NHSNView from "./views/NHSNView";
+import NSSPView from "./views/NSSPView";
 import { CHART_CONSTANTS } from "../constants/chart";
 
 /**
@@ -187,6 +188,9 @@ const ViewSwitchboard = ({
           selectedTarget={selectedTarget}
         />
       );
+
+    case "nsspall":
+      return <NSSPView location={location} data={data} metadata={metadata} />;
 
     default:
       return (

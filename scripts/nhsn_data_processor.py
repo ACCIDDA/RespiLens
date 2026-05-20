@@ -9,11 +9,8 @@ import numpy as np
 import os
 import pandas as pd
 import requests
-import time
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-from helper import get_location_info, LOCATIONS_MAP
+from helper import get_location_info, STATEABBREVIATION_TO_FIPS_MAP, retrieve_data_from_endpoint_aslist
 
 logger = logging.getLogger(__name__)
 script_dir = os.path.dirname(__file__) 
@@ -44,7 +41,7 @@ class NHSNDataProcessor:
         """Fetches, processes, and structures NHSN data into self.output_dict"""
         # Get data set up 
         logger.info(f"Retrieving NHSN data from {self.data_url}...")
-        data = pd.DataFrame(self._retrieve_data_from_endpoint_aslist()) # read from endpoint
+        data = pd.DataFrame(retrieve_data_from_endpoint_aslist(data_url=self.data_url)) # read from endpoint
         non_numeric_cols = ['jurisdiction', 'weekendingdate'] # make numeric cols not strings
         data = data.drop(columns=['respseason'])
         for col in data.columns:
@@ -66,7 +63,7 @@ class NHSNDataProcessor:
             self.output_dict["metadata.json"] = self._build_metadata_file(list(data.columns), list(set(data['Geographic aggregation'])))
             unique_regions = set(data['Geographic aggregation'])
             for region in unique_regions:
-                current_region_fips_code = LOCATIONS_MAP[region]
+                current_region_fips_code = STATEABBREVIATION_TO_FIPS_MAP[region]
                 current_region_df = data[data['Geographic aggregation'] == region]
                 current_region_df = current_region_df.sort_values(by='Week Ending Date')
                 series = {
@@ -115,37 +112,7 @@ class NHSNDataProcessor:
                 self.output_dict[f"{region}_nhsn.json"] = json_struct
 
         logger.info("Success ✅")
-        
-
-    def _retrieve_data_from_endpoint_aslist(self) -> list[dict]:
-        """Downloads NHSN data from the endpoint with pagination and retries."""
-        
-        session = requests.Session()
-        retries = Retry(total=5,
-                        backoff_factor=1,
-                        status_forcelist=[500, 502, 503, 504])
-        session.mount('https://', HTTPAdapter(max_retries=retries))
-        
-        all_data = []
-        offset = 0
-        batch_size = 1000
-        while True:
-            params = {"$limit": batch_size, "$offset": offset}
-            try:
-                # Use the configured session to make the request
-                data_response = session.get(self.data_url, params=params, timeout=30)
-                data_response.raise_for_status()
-                batch_data = data_response.json()
-                if not batch_data:
-                    break
-                all_data.extend(batch_data)
-                offset += batch_size
-                time.sleep(0.1)
-            except Exception as e:
-                logger.error(f"Error downloading data: {str(e)}")
-                raise
-        return all_data
-
+    
 
     def _replace_column_names(self, data: pd.DataFrame, cdc_metadata: dict) -> pd.DataFrame:
         """Replace short-form column names with long-form column names"""

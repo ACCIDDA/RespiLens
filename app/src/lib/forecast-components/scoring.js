@@ -1,108 +1,11 @@
 /**
  * Reusable Forecast Scoring Utilities
- * Extracted from forecastleScoring.js for use across the app
+ * WIS is re-exported from the canonical Forecastle scoring utility.
  */
 
-/**
- * Calculate interval score for a single prediction interval
- * @param {number} observed - Observed value
- * @param {number} lower - Lower bound of prediction interval
- * @param {number} upper - Upper bound of prediction interval
- * @param {number} alpha - Alpha level (e.g., 0.5 for 50% interval, 0.05 for 95% interval)
- * @returns {Object} Interval score with components {score, dispersion, underprediction, overprediction}
- */
-const calculateIntervalScore = (observed, lower, upper, alpha) => {
-  if (
-    !Number.isFinite(observed) ||
-    !Number.isFinite(lower) ||
-    !Number.isFinite(upper)
-  ) {
-    return null;
-  }
+import { calculateWIS } from "../../utils/forecastleScoring.js";
 
-  const dispersion = upper - lower;
-  const underprediction =
-    observed < lower ? (2 / alpha) * (lower - observed) : 0;
-  const overprediction =
-    observed > upper ? (2 / alpha) * (observed - upper) : 0;
-  const score = dispersion + underprediction + overprediction;
-
-  return {
-    score,
-    dispersion,
-    underprediction,
-    overprediction,
-  };
-};
-
-/**
- * Calculate WIS (Weighted Interval Score) for a single forecast
- * @param {number} observed - Observed value
- * @param {number} median - Median prediction
- * @param {number} lower50 - Lower bound of 50% interval (0.25 quantile)
- * @param {number} upper50 - Upper bound of 50% interval (0.75 quantile)
- * @param {number} lower95 - Lower bound of 95% interval (0.025 quantile)
- * @param {number} upper95 - Upper bound of 95% interval (0.975 quantile)
- * @returns {Object} WIS with components {wis, dispersion, underprediction, overprediction}
- */
-export const calculateWIS = (
-  observed,
-  median,
-  lower50,
-  upper50,
-  lower95,
-  upper95,
-) => {
-  if (!Number.isFinite(observed)) {
-    return null;
-  }
-
-  // Calculate interval scores for each interval
-  const interval50 = calculateIntervalScore(observed, lower50, upper50, 0.5);
-  const interval95 = calculateIntervalScore(observed, lower95, upper95, 0.05);
-
-  if (!interval50 || !interval95) {
-    return null;
-  }
-
-  // Median absolute error (treated as 0-width interval)
-  const medianAE = Number.isFinite(median) ? Math.abs(observed - median) : 0;
-
-  // Weights: alpha/2 for each interval, 0.5 for median
-  const weight50 = 0.5 / 2; // 0.25
-  const weight95 = 0.05 / 2; // 0.025
-  const weightMedian = 0.5; // 0.5
-
-  // Weighted sum
-  const totalWeight = weight50 + weight95 + weightMedian;
-  const wis =
-    (weight50 * interval50.score +
-      weight95 * interval95.score +
-      weightMedian * medianAE) /
-    totalWeight;
-
-  // Calculate aggregate components
-  const dispersion =
-    (weight50 * interval50.dispersion + weight95 * interval95.dispersion) /
-    totalWeight;
-
-  const underprediction =
-    (weight50 * interval50.underprediction +
-      weight95 * interval95.underprediction) /
-    totalWeight;
-
-  const overprediction =
-    (weight50 * interval50.overprediction +
-      weight95 * interval95.overprediction) /
-    totalWeight;
-
-  return {
-    wis,
-    dispersion,
-    underprediction,
-    overprediction,
-  };
-};
+export { calculateWIS };
 
 /**
  * Validate forecast intervals

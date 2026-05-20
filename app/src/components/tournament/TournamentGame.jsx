@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Badge,
@@ -28,7 +28,11 @@ import {
   convertToIntervals,
 } from "../../utils/forecastleInputs";
 import { validateForecastSubmission } from "../../utils/forecastleValidation";
-import { TOURNAMENT_CONFIG } from "../../config";
+import {
+  TOURNAMENT_CONFIG,
+  getChallengeDatasetLabel,
+  getMaskedForecastDate,
+} from "../../config";
 import {
   scoreUserForecast,
   scoreModels,
@@ -53,7 +57,46 @@ const addWeeksToDate = (dateString, weeks) => {
 
 const getSubmissionForecasts = (submissions, challenge) => {
   if (!submissions) return null;
-  return submissions[challenge.id] || submissions[challenge.number] || null;
+  const submission =
+    submissions[challenge.id] || submissions[challenge.number] || null;
+
+  if (Array.isArray(submission)) {
+    return submission;
+  }
+
+  if (submission?.forecasts && Array.isArray(submission.forecasts)) {
+    return submission.forecasts;
+  }
+
+  return null;
+};
+
+const restoreForecastEntries = (forecasts) =>
+  forecasts.map((forecast) => ({
+    horizon: forecast.horizon,
+    median: forecast.median,
+    lower50: forecast.q25,
+    upper50: forecast.q75,
+    lower95: forecast.q025,
+    upper95: forecast.q975,
+    width50: Math.max(
+      forecast.q75 - forecast.median,
+      forecast.median - forecast.q25,
+    ),
+    width95: Math.max(
+      forecast.q975 - forecast.median,
+      forecast.median - forecast.q025,
+    ),
+  }));
+
+const formatScore = (value) =>
+  Number.isFinite(value) ? value.toFixed(1) : "N/A";
+
+const getFirstIncompleteChallengeIndex = (challenges, completedChallenges) => {
+  const nextIndex = challenges.findIndex(
+    (challenge) => !completedChallenges.has(challenge.id),
+  );
+  return nextIndex >= 0 ? nextIndex : 0;
 };
 
 const TournamentGame = ({
@@ -74,9 +117,11 @@ const TournamentGame = ({
   const [leaderboardData, setLeaderboardData] = useState(null);
   const [groundTruthData, setGroundTruthData] = useState({});
   const [scenarioData, setScenarioData] = useState({});
+  const [savedSubmissions, setSavedSubmissions] = useState({});
   const [loading, setLoading] = useState(true);
 
   const challenge = tournamentConfig.challenges[currentChallengeIndex];
+  const challengeId = challenge?.id;
   const allChallengesCompleted =
     tournamentConfig.numChallenges > 0 &&
     tournamentConfig.challenges.every((ch) => completedChallenges.has(ch.id));
@@ -91,6 +136,9 @@ const TournamentGame = ({
       ),
     [tournamentConfig],
   );
+  const isChallengeLocked =
+    tournamentConfig.features?.allowResubmit === false &&
+    completedChallenges.has(challenge?.id);
 
   // Load all challenge data and ground truth
   useEffect(() => {
@@ -152,6 +200,7 @@ const TournamentGame = ({
       try {
         const data = await getParticipant(participantId, tournamentConfig);
         const completed = new Set();
+        const nextSavedSubmissions = {};
 
         data.submissions.forEach((sub) => {
           const challengeId =
@@ -163,10 +212,12 @@ const TournamentGame = ({
             enabledChallengeIds.has(challengeId)
           ) {
             completed.add(challengeId);
+            nextSavedSubmissions[challengeId] = sub;
           }
         });
 
         setCompletedChallenges(completed);
+        setSavedSubmissions(nextSavedSubmissions);
       } catch (err) {
         console.error("Failed to load completed challenges:", err);
       }
@@ -177,6 +228,38 @@ const TournamentGame = ({
     participantId,
     enabledChallengeIds,
     challengeIdByNumber,
+    tournamentConfig,
+  ]);
+
+  useEffect(() => {
+    if (inputMode === "scoring") {
+      return;
+    }
+
+    if (!challenge) {
+      return;
+    }
+
+    if (
+      tournamentConfig.features?.allowResubmit === false &&
+      completedChallenges.has(challenge.id) &&
+      !allChallengesCompleted
+    ) {
+      const nextIndex = getFirstIncompleteChallengeIndex(
+        tournamentConfig.challenges,
+        completedChallenges,
+      );
+
+      if (nextIndex !== currentChallengeIndex) {
+        setCurrentChallengeIndex(nextIndex);
+      }
+    }
+  }, [
+    challenge,
+    completedChallenges,
+    currentChallengeIndex,
+    allChallengesCompleted,
+    inputMode,
     tournamentConfig,
   ]);
 
@@ -216,18 +299,35 @@ const TournamentGame = ({
   );
 
   const [forecastEntries, setForecastEntries] = useState(initialInputs);
+  const previousChallengeIdRef = useRef(null);
 
-  // Reset when moving to next challenge
   useEffect(() => {
-    if (!challenge) return;
+    if (!challengeId) return;
 
-    setForecastEntries(initialInputs);
-    setSubmissionErrors({});
-    setScores(null);
-    setInputMode("median");
-    setVisibleRankings(0);
-    setError(null);
-  }, [currentChallengeIndex, initialInputs, challenge]);
+    const savedSubmission = savedSubmissions[challengeId];
+    const hasSavedForecasts = savedSubmission?.forecasts?.length > 0;
+    const challengeChanged = previousChallengeIdRef.current !== challengeId;
+
+    previousChallengeIdRef.current = challengeId;
+
+    if (challengeChanged) {
+      if (hasSavedForecasts) {
+        setForecastEntries(restoreForecastEntries(savedSubmission.forecasts));
+      } else {
+        setForecastEntries(initialInputs);
+      }
+      setSubmissionErrors({});
+      setScores(null);
+      setInputMode("median");
+      setVisibleRankings(0);
+      setError(null);
+      return;
+    }
+
+    if (inputMode !== "scoring" && hasSavedForecasts) {
+      setForecastEntries(restoreForecastEntries(savedSubmission.forecasts));
+    }
+  }, [challengeId, initialInputs, savedSubmissions, inputMode]);
 
   const groundTruthSeries = useMemo(() => {
     if (!challenge || !scenarioData[challenge.number]) return [];
@@ -278,6 +378,10 @@ const TournamentGame = ({
   }, [latestObservationValue, forecastEntries]);
 
   const handleAdjust = (index, field, value) => {
+    if (isChallengeLocked) {
+      return;
+    }
+
     setForecastEntries((prevEntries) =>
       prevEntries.map((entry, idx) => {
         if (idx !== index) return entry;
@@ -331,6 +435,13 @@ const TournamentGame = ({
   };
 
   const handleSubmit = async () => {
+    if (isChallengeLocked) {
+      setError(
+        "This challenge has already been submitted. Amendments are disabled for this tournament.",
+      );
+      return;
+    }
+
     const intervalsForValidation = convertToIntervals(forecastEntries);
     const { valid, errors } = validateForecastSubmission(
       intervalsForValidation,
@@ -382,6 +493,21 @@ const TournamentGame = ({
 
       // Mark as completed
       setCompletedChallenges((prev) => new Set([...prev, challenge.id]));
+      setSavedSubmissions((prev) => ({
+        ...prev,
+        [challenge.id]: {
+          challengeId: challenge.id,
+          challengeNum: challenge.number,
+          forecasts: forecastEntries.map((entry) => ({
+            horizon: entry.horizon,
+            median: entry.median,
+            q25: entry.lower50,
+            q75: entry.upper50,
+            q025: entry.lower95,
+            q975: entry.upper95,
+          })),
+        },
+      }));
 
       // Move to scoring view
       setInputMode("scoring");
@@ -389,6 +515,26 @@ const TournamentGame = ({
       setError(err.message || "Submission failed");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const moveToNextIncompleteChallenge = () => {
+    if (allChallengesCompleted) {
+      return;
+    }
+
+    const nextIndex = getFirstIncompleteChallengeIndex(
+      tournamentConfig.challenges,
+      completedChallenges,
+    );
+
+    if (nextIndex !== currentChallengeIndex) {
+      setCurrentChallengeIndex(nextIndex);
+      return;
+    }
+
+    if (currentChallengeIndex < tournamentConfig.challenges.length - 1) {
+      setCurrentChallengeIndex((prev) => prev + 1);
     }
   };
 
@@ -450,7 +596,7 @@ const TournamentGame = ({
             <Stepper.Step
               key={ch.id}
               label={`Challenge ${idx + 1}`}
-              description={`${ch.displayName} - ${ch.dataset.toUpperCase()}`}
+              description={`${ch.displayName} - ${getChallengeDatasetLabel(ch, tournamentConfig)}`}
               icon={
                 completedChallenges.has(ch.id) ? (
                   <IconCheck size={18} />
@@ -471,8 +617,12 @@ const TournamentGame = ({
                   {challenge.description}
                 </Text>
                 <Text size="xs" c="dimmed" mt="xs">
-                  Forecast date: {challenge.forecastDate} •{" "}
-                  {challenge.displayName}
+                  Forecast date:{" "}
+                  {getMaskedForecastDate(
+                    challenge.forecastDate,
+                    tournamentConfig,
+                  )}{" "}
+                  • {challenge.displayName}
                 </Text>
               </div>
 
@@ -484,6 +634,23 @@ const TournamentGame = ({
                 >
                   {error}
                 </Alert>
+              )}
+
+              {isChallengeLocked && (
+                <Alert
+                  icon={<IconCheck size={16} />}
+                  title="Challenge submitted"
+                  color="blue"
+                >
+                  Amendments are disabled for this tournament. Your submitted
+                  forecast is shown below, but it cannot be changed.
+                </Alert>
+              )}
+
+              {isChallengeLocked && !allChallengesCompleted && (
+                <Button onClick={moveToNextIncompleteChallenge} variant="light">
+                  Continue to Next Challenge
+                </Button>
               )}
 
               {/* Input Mode Stepper */}
@@ -519,6 +686,9 @@ const TournamentGame = ({
                         height={380}
                         showIntervals={inputMode === "intervals"}
                         zoomedView={zoomedView}
+                        dateLabelFormatter={(date) =>
+                          getMaskedForecastDate(date, tournamentConfig)
+                        }
                       />
                     </Box>
 
@@ -544,6 +714,7 @@ const TournamentGame = ({
                       onChange={setForecastEntries}
                       maxValue={maxValue}
                       mode={inputMode}
+                      disabled={isChallengeLocked}
                     />
 
                     {Object.keys(submissionErrors).length > 0 && (
@@ -571,6 +742,7 @@ const TournamentGame = ({
                             <Button
                               onClick={() => setInputMode("intervals")}
                               rightSection="→"
+                              disabled={isChallengeLocked}
                             >
                               Next: Set Intervals
                             </Button>
@@ -580,6 +752,7 @@ const TournamentGame = ({
                               loading={submitting}
                               color="green"
                               leftSection={<IconTarget size={16} />}
+                              disabled={isChallengeLocked}
                             >
                               Submit Forecast
                             </Button>
@@ -600,14 +773,7 @@ const TournamentGame = ({
             participantName={participantName}
             leaderboardData={leaderboardData}
             visibleRankings={visibleRankings}
-            onNextChallenge={() => {
-              if (
-                currentChallengeIndex <
-                tournamentConfig.challenges.length - 1
-              ) {
-                setCurrentChallengeIndex((prev) => prev + 1);
-              }
-            }}
+            onNextChallenge={moveToNextIncompleteChallenge}
             allCompleted={allChallengesCompleted}
             onAllCompleted={onAllCompleted}
           />
@@ -665,12 +831,14 @@ const ScoreDisplay = ({
         }));
 
         const pScore = scoreUserForecast(forecastEntries, scores.groundTruth);
-        allRanked.push({
-          name: p.name,
-          wis: pScore.wis,
-          isUser: false,
-          type: "participant",
-        });
+        if (Number.isFinite(pScore.wis)) {
+          allRanked.push({
+            name: p.name,
+            wis: pScore.wis,
+            isUser: false,
+            type: "participant",
+          });
+        }
       }
     });
 
@@ -680,6 +848,7 @@ const ScoreDisplay = ({
 
   // Calculate user rank AFTER adding all participants and final sort
   const userRank = allRanked.findIndex((e) => e.isUser) + 1;
+  const userEntry = allRanked.find((e) => e.isUser);
 
   return (
     <Paper shadow="sm" p="lg" withBorder>
@@ -726,9 +895,9 @@ const ScoreDisplay = ({
               Your Forecast
             </Text>
             <Badge size="xl" color="blue">
-              Rank #{userRank}
+              {userRank > 0 ? `Rank #${userRank}` : "Rank unavailable"}
             </Badge>
-            {userRank / allRanked.length <= 0.1 && (
+            {userRank > 0 && userRank / allRanked.length <= 0.1 && (
               <Text size="md" weight={600} c="green">
                 Bravo! 😊
               </Text>
@@ -795,7 +964,7 @@ const ScoreDisplay = ({
                             </Badge>
                           )}
                         </Group>
-                        <Text size="sm">{entry.wis.toFixed(1)}</Text>
+                        <Text size="sm">{formatScore(entry.wis)}</Text>
                       </Group>
                     </Paper>
                   ))}
@@ -821,9 +990,7 @@ const ScoreDisplay = ({
                                 You
                               </Badge>
                             </Group>
-                            <Text size="sm">
-                              {allRanked.find((e) => e.isUser).wis.toFixed(1)}
-                            </Text>
+                            <Text size="sm">{formatScore(userEntry?.wis)}</Text>
                           </Group>
                         </Paper>
                       )}
