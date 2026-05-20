@@ -30,30 +30,6 @@ const MyPlotsLink = () => {
   );
 };
 
-const MetroCastLink = () => {
-  const { setViewType } = useView();
-
-  const handleClick = (e) => {
-    e.preventDefault();
-    setViewType("metrocast_forecasts");
-  };
-  return (
-    <span>
-      RespiLens now displays{" "}
-      <Anchor
-        component="button"
-        onClick={handleClick}
-        fw={700}
-        c="blue.7"
-        style={{ fontSize: "inherit", verticalAlign: "baseline" }}
-      >
-        flu MetroCast forecasts;
-      </Anchor>{" "}
-      metro area-level flu forecasts.
-    </span>
-  );
-};
-
 const NsspViewLink = () => {
   return (
     <span>
@@ -84,13 +60,6 @@ const FrontPage = () => {
         endDate="2026-07-15"
         announcementType="update"
         text={<NsspViewLink />}
-      />
-      <Announcement
-        id="new-metrocast-2026"
-        startDate="2026-02-01"
-        endDate="2026-04-15"
-        announcementType={"update"}
-        text={<MetroCastLink />}
       />
       <Announcement
         id="new-myplots-feature"
