@@ -76,7 +76,7 @@ const TournamentRegistration = ({
             <Stack spacing="md">
               <TextInput
                 label="Your Name"
-                placeholder="Enter a recognizable name (e.g., your name :) )"
+                placeholder="e.g., John Snow"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
