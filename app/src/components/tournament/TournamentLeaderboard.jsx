@@ -167,7 +167,7 @@ const TournamentLeaderboard = ({
 
           return {
             ...participant,
-            totalWIS,
+            totalWIS: validChallenges > 0 ? totalWIS : null,
             avgWIS,
             avgDispersion,
             avgUnderprediction,

@@ -92,7 +92,7 @@ export const TOURNAMENT_REGISTRY = [
         displayName: "New York",
         target: "wk inc flu hosp",
         horizons: [1, 2, 3],
-        forecastDate: "2024-11-25",
+        forecastDate: "2024-11-23",
       },
       {
         id: "ch-2",
@@ -109,7 +109,7 @@ export const TOURNAMENT_REGISTRY = [
         displayName: "North Carolina",
         target: "wk inc flu hosp",
         horizons: [1, 2, 3],
-        forecastDate: "2024-12-23",
+        forecastDate: "2024-12-21",
       },
       {
         id: "ch-3",
@@ -126,7 +126,7 @@ export const TOURNAMENT_REGISTRY = [
         displayName: "Maryland",
         target: "wk inc rsv hosp",
         horizons: [1, 2, 3],
-        forecastDate: "2025-01-13",
+        forecastDate: "2025-12-20",
       },
     ],
   },
