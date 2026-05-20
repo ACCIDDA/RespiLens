@@ -5,6 +5,24 @@
 
 import { TOURNAMENT_CONFIG, getChallengeByNumber } from "../config";
 
+const isLocalDevHost = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+};
+
+const getPostEndpoint = (apiUrl) => {
+  if (!isLocalDevHost()) {
+    return apiUrl;
+  }
+
+  const proxyUrl = new URL("/__tournament_api__", window.location.origin);
+  proxyUrl.searchParams.set("target", apiUrl);
+  return proxyUrl.toString();
+};
+
 /**
  * Make a GET request to the tournament API
  * @param {string} action - API action
@@ -71,8 +89,10 @@ const apiPost = async (payload, tournamentConfig = TOURNAMENT_CONFIG) => {
   }
 
   try {
+    const endpoint = getPostEndpoint(apiUrl);
+
     // Use text/plain to avoid CORS preflight
-    const response = await fetch(apiUrl, {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain",

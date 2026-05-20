@@ -59,6 +59,78 @@ const DEFAULT_TOURNAMENT_SETTINGS = {
 
 export const TOURNAMENT_REGISTRY = [
   {
+    id: "allhands-challenge",
+    enabled: true,
+    path: "/accidda-allhands",
+    navLabel: "AllhandsChallenge",
+    storageKeyPrefix: "allhandschallenge",
+    name: "ACCIDDA all-hands Forecastle challenge!",
+    description:
+      "Compete in 3 epidemic forecasting challenges and climb the leaderboard",
+    // changed this in app/.env (add your constant)
+    apiUrl:
+      import.meta.env.VITE_ALLHANDS_CHALLENGE_API_URL ||
+      "https://script.google.com/macros/s/AKfycbzGBcCDAnAgnbCcyw0zSHSTNjlfgdiO5HyNCYn5gNGxhAjypgUcoufUTx2E7X1IOXyb/exec",
+    sheetId: "1ppWi9Dzp-QjgTXjCsTQEgxr8fhRDGpdZhX6cB0ssvjw",
+    features: {
+      maskChallengeYear: true,
+      maskPathogen: false,
+    },
+    challenges: [
+      {
+        id: "ch-1",
+        enabled: true,
+        number: 1,
+        title: "New York Influenza Forecast",
+        description:
+          "Predict New York flu hospitalizations for 1, 2, and 3 weeks ahead",
+        dataset: "flu",
+        datasetKey: "flusight",
+        dataPath: "flusight",
+        fileSuffix: "flu.json",
+        location: "NY",
+        displayName: "New York",
+        target: "wk inc flu hosp",
+        horizons: [1, 2, 3],
+        forecastDate: "2024-11-25",
+      },
+      {
+        id: "ch-2",
+        enabled: true,
+        number: 2,
+        title: "North Carolina Influenza Forecast",
+        description:
+          "Predict North Carolina flu hospitalizations for 1, 2, and 3 weeks ahead",
+        dataset: "flu",
+        datasetKey: "flusight",
+        dataPath: "flusight",
+        fileSuffix: "flu.json",
+        location: "NC",
+        displayName: "North Carolina",
+        target: "wk inc flu hosp",
+        horizons: [1, 2, 3],
+        forecastDate: "2024-12-23",
+      },
+      {
+        id: "ch-3",
+        enabled: true,
+        number: 3,
+        title: "Maryland RSV Forecast",
+        description:
+          "Predict Maryland RSV hospitalizations for 1, 2, and 3 weeks ahead",
+        dataset: "rsv",
+        datasetKey: "rsv",
+        dataPath: "rsvforecasthub",
+        fileSuffix: "rsv.json",
+        location: "MD",
+        displayName: "Maryland",
+        target: "wk inc rsv hosp",
+        horizons: [1, 2, 3],
+        forecastDate: "2025-01-13",
+      },
+    ],
+  },
+  {
     id: "emily-tournament",
     enabled: true,
     path: "/emily-tournament",

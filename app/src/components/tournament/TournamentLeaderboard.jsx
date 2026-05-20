@@ -27,7 +27,18 @@ const addWeeksToDate = (dateString, weeks) => {
 
 const getSubmissionForecasts = (submissions, challenge) => {
   if (!submissions) return null;
-  return submissions[challenge.id] || submissions[challenge.number] || null;
+  const submission =
+    submissions[challenge.id] || submissions[challenge.number] || null;
+
+  if (Array.isArray(submission)) {
+    return submission;
+  }
+
+  if (submission?.forecasts && Array.isArray(submission.forecasts)) {
+    return submission.forecasts;
+  }
+
+  return null;
 };
 
 const TournamentLeaderboard = ({
@@ -361,7 +372,11 @@ const TournamentLeaderboard = ({
                       </Text>
                     </td>
                     <td>
-                      <Text weight={isUser ? 700 : 400} size="sm">
+                      <Text
+                        component="div"
+                        weight={isUser ? 700 : 400}
+                        size="sm"
+                      >
                         {entry.name}
                         {isUser && (
                           <Badge ml="xs" size="xs" color="blue">

@@ -57,7 +57,18 @@ const addWeeksToDate = (dateString, weeks) => {
 
 const getSubmissionForecasts = (submissions, challenge) => {
   if (!submissions) return null;
-  return submissions[challenge.id] || submissions[challenge.number] || null;
+  const submission =
+    submissions[challenge.id] || submissions[challenge.number] || null;
+
+  if (Array.isArray(submission)) {
+    return submission;
+  }
+
+  if (submission?.forecasts && Array.isArray(submission.forecasts)) {
+    return submission.forecasts;
+  }
+
+  return null;
 };
 
 const restoreForecastEntries = (forecasts) =>
@@ -77,6 +88,16 @@ const restoreForecastEntries = (forecasts) =>
       forecast.median - forecast.q025,
     ),
   }));
+
+const formatScore = (value) =>
+  Number.isFinite(value) ? value.toFixed(1) : "N/A";
+
+const getFirstIncompleteChallengeIndex = (challenges, completedChallenges) => {
+  const nextIndex = challenges.findIndex(
+    (challenge) => !completedChallenges.has(challenge.id),
+  );
+  return nextIndex >= 0 ? nextIndex : 0;
+};
 
 const TournamentGame = ({
   tournamentConfig = TOURNAMENT_CONFIG,
@@ -207,6 +228,38 @@ const TournamentGame = ({
     participantId,
     enabledChallengeIds,
     challengeIdByNumber,
+    tournamentConfig,
+  ]);
+
+  useEffect(() => {
+    if (inputMode === "scoring") {
+      return;
+    }
+
+    if (!challenge) {
+      return;
+    }
+
+    if (
+      tournamentConfig.features?.allowResubmit === false &&
+      completedChallenges.has(challenge.id) &&
+      !allChallengesCompleted
+    ) {
+      const nextIndex = getFirstIncompleteChallengeIndex(
+        tournamentConfig.challenges,
+        completedChallenges,
+      );
+
+      if (nextIndex !== currentChallengeIndex) {
+        setCurrentChallengeIndex(nextIndex);
+      }
+    }
+  }, [
+    challenge,
+    completedChallenges,
+    currentChallengeIndex,
+    allChallengesCompleted,
+    inputMode,
     tournamentConfig,
   ]);
 
@@ -465,6 +518,26 @@ const TournamentGame = ({
     }
   };
 
+  const moveToNextIncompleteChallenge = () => {
+    if (allChallengesCompleted) {
+      return;
+    }
+
+    const nextIndex = getFirstIncompleteChallengeIndex(
+      tournamentConfig.challenges,
+      completedChallenges,
+    );
+
+    if (nextIndex !== currentChallengeIndex) {
+      setCurrentChallengeIndex(nextIndex);
+      return;
+    }
+
+    if (currentChallengeIndex < tournamentConfig.challenges.length - 1) {
+      setCurrentChallengeIndex((prev) => prev + 1);
+    }
+  };
+
   // Animate rankings reveal
   useEffect(() => {
     if (
@@ -572,6 +645,12 @@ const TournamentGame = ({
                   Amendments are disabled for this tournament. Your submitted
                   forecast is shown below, but it cannot be changed.
                 </Alert>
+              )}
+
+              {isChallengeLocked && !allChallengesCompleted && (
+                <Button onClick={moveToNextIncompleteChallenge} variant="light">
+                  Continue to Next Challenge
+                </Button>
               )}
 
               {/* Input Mode Stepper */}
@@ -694,14 +773,7 @@ const TournamentGame = ({
             participantName={participantName}
             leaderboardData={leaderboardData}
             visibleRankings={visibleRankings}
-            onNextChallenge={() => {
-              if (
-                currentChallengeIndex <
-                tournamentConfig.challenges.length - 1
-              ) {
-                setCurrentChallengeIndex((prev) => prev + 1);
-              }
-            }}
+            onNextChallenge={moveToNextIncompleteChallenge}
             allCompleted={allChallengesCompleted}
             onAllCompleted={onAllCompleted}
           />
@@ -759,12 +831,14 @@ const ScoreDisplay = ({
         }));
 
         const pScore = scoreUserForecast(forecastEntries, scores.groundTruth);
-        allRanked.push({
-          name: p.name,
-          wis: pScore.wis,
-          isUser: false,
-          type: "participant",
-        });
+        if (Number.isFinite(pScore.wis)) {
+          allRanked.push({
+            name: p.name,
+            wis: pScore.wis,
+            isUser: false,
+            type: "participant",
+          });
+        }
       }
     });
 
@@ -774,6 +848,7 @@ const ScoreDisplay = ({
 
   // Calculate user rank AFTER adding all participants and final sort
   const userRank = allRanked.findIndex((e) => e.isUser) + 1;
+  const userEntry = allRanked.find((e) => e.isUser);
 
   return (
     <Paper shadow="sm" p="lg" withBorder>
@@ -820,9 +895,9 @@ const ScoreDisplay = ({
               Your Forecast
             </Text>
             <Badge size="xl" color="blue">
-              Rank #{userRank}
+              {userRank > 0 ? `Rank #${userRank}` : "Rank unavailable"}
             </Badge>
-            {userRank / allRanked.length <= 0.1 && (
+            {userRank > 0 && userRank / allRanked.length <= 0.1 && (
               <Text size="md" weight={600} c="green">
                 Bravo! 😊
               </Text>
@@ -889,7 +964,7 @@ const ScoreDisplay = ({
                             </Badge>
                           )}
                         </Group>
-                        <Text size="sm">{entry.wis.toFixed(1)}</Text>
+                        <Text size="sm">{formatScore(entry.wis)}</Text>
                       </Group>
                     </Paper>
                   ))}
@@ -915,9 +990,7 @@ const ScoreDisplay = ({
                                 You
                               </Badge>
                             </Group>
-                            <Text size="sm">
-                              {allRanked.find((e) => e.isUser).wis.toFixed(1)}
-                            </Text>
+                            <Text size="sm">{formatScore(userEntry?.wis)}</Text>
                           </Group>
                         </Paper>
                       )}
