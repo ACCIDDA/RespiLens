@@ -61,7 +61,7 @@ export const TOURNAMENT_REGISTRY = [
   {
     id: "allhands-challenge",
     enabled: true,
-    path: "/allhands-challenge",
+    path: "/accidda-allhands",
     navLabel: "AllhandsChallenge",
     storageKeyPrefix: "allhandschallenge",
     name: "ACCIDDA all-hands Forecastle challenge!",
