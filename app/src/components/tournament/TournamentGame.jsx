@@ -35,6 +35,8 @@ import {
   shouldMaskChallengeYear,
 } from "../../config";
 import {
+  addRelativeWISToScore,
+  calculateRelativeWIS,
   scoreUserForecast,
   scoreModels,
   getOfficialModels,
@@ -92,6 +94,8 @@ const restoreForecastEntries = (forecasts) =>
 
 const formatScore = (value) =>
   Number.isFinite(value) ? value.toFixed(1) : "N/A";
+
+const getDisplayScore = (score) => score?.relativeWis ?? score?.wis ?? null;
 
 const getFirstIncompleteChallengeIndex = (challenges, completedChallenges) => {
   const nextIndex = challenges.findIndex(
@@ -480,10 +484,21 @@ const TournamentGame = ({
         challenge.horizons,
         gtData.values,
       );
+      const { baseline: baselineKey } = getOfficialModels(challenge.datasetKey);
+      const baselineScore =
+        modelScores.find((model) => model.modelName === baselineKey) || null;
+      const baselineWIS = baselineScore?.wis ?? null;
+      const normalizedUserScore = addRelativeWISToScore(userScore, baselineWIS);
+      const normalizedModelScores = modelScores.map((model) =>
+        addRelativeWISToScore(model, baselineWIS),
+      );
 
       setScores({
-        user: userScore,
-        models: modelScores,
+        user: normalizedUserScore,
+        models: normalizedModelScores,
+        rawUser: userScore,
+        rawModels: modelScores,
+        baselineWIS,
         groundTruth: gtData.values,
         horizonDates: gtData.dates,
       });
@@ -808,10 +823,15 @@ const ScoreDisplay = ({
 
   // Create unified ranking
   const allRanked = [
-    { name: participantName, wis: scores.user.wis, isUser: true, type: "user" },
+    {
+      name: participantName,
+      wis: getDisplayScore(scores.user),
+      isUser: true,
+      type: "user",
+    },
     ...scores.models.map((m) => ({
       name: m.modelName,
-      wis: m.wis,
+      wis: getDisplayScore(m),
       isUser: false,
       type: "model",
     })),
@@ -837,10 +857,14 @@ const ScoreDisplay = ({
         }));
 
         const pScore = scoreUserForecast(forecastEntries, scores.groundTruth);
-        if (Number.isFinite(pScore.wis)) {
+        const pRelativeWIS = calculateRelativeWIS(
+          pScore.wis,
+          scores.baselineWIS,
+        );
+        if (Number.isFinite(pRelativeWIS)) {
           allRanked.push({
             name: p.name,
-            wis: pScore.wis,
+            wis: pRelativeWIS,
             isUser: false,
             type: "participant",
           });

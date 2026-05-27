@@ -589,9 +589,9 @@ const ForecastleStatsModal = ({ opened, onClose }) => {
                     Performance by Pathogen
                   </Text>
                   <Text size="xs" c="dimmed">
-                    Average WIS scores grouped by disease type. Compare your
-                    performance against the hub ensemble and baseline. Lower
-                    scores indicate better forecasting.
+                    Average relative WIS scores grouped by disease type. Compare
+                    your performance against the hub ensemble and baseline.
+                    Lower scores indicate better forecasting.
                   </Text>
 
                   {/* Summary stats */}
@@ -739,156 +739,183 @@ const ForecastleStatsModal = ({ opened, onClose }) => {
                             <Stack gap={4}>
                               {/* User bar */}
                               <div>
-                                <Text size="xs" fw={500} mb={2}>
-                                  You
-                                </Text>
-                                <Group gap={0} style={{ height: 24 }}>
-                                  {stat.averageUnderprediction !== null &&
-                                    stat.averageUnderprediction > 0 && (
-                                      <div
-                                        style={{
-                                          width: `${(stat.averageUnderprediction / (stat.averageWIS || 1)) * 100}%`,
-                                          height: "100%",
-                                          backgroundColor: "#4c6ef5",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                        }}
-                                        title={`Underprediction: ${stat.averageUnderprediction.toFixed(3)}`}
-                                      >
-                                        {stat.averageUnderprediction > 5 && (
-                                          <Text size="xs" c="white">
-                                            {stat.averageUnderprediction.toFixed(
-                                              1,
+                                {(() => {
+                                  const userComponentTotal =
+                                    (stat.averageUnderprediction || 0) +
+                                    (stat.averageOverprediction || 0) +
+                                    (stat.averageDispersion || 0);
+                                  return (
+                                    <>
+                                      <Text size="xs" fw={500} mb={2}>
+                                        You
+                                      </Text>
+                                      <Group gap={0} style={{ height: 24 }}>
+                                        {stat.averageUnderprediction !== null &&
+                                          stat.averageUnderprediction > 0 && (
+                                            <div
+                                              style={{
+                                                width: `${(stat.averageUnderprediction / (userComponentTotal || 1)) * 100}%`,
+                                                height: "100%",
+                                                backgroundColor: "#4c6ef5",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                              }}
+                                              title={`Underprediction: ${stat.averageUnderprediction.toFixed(3)}`}
+                                            >
+                                              {stat.averageUnderprediction >
+                                                5 && (
+                                                <Text size="xs" c="white">
+                                                  {stat.averageUnderprediction.toFixed(
+                                                    1,
+                                                  )}
+                                                </Text>
+                                              )}
+                                            </div>
+                                          )}
+                                        {stat.averageOverprediction !== null &&
+                                          stat.averageOverprediction > 0 && (
+                                            <div
+                                              style={{
+                                                width: `${(stat.averageOverprediction / (userComponentTotal || 1)) * 100}%`,
+                                                height: "100%",
+                                                backgroundColor: "#f03e3e",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                              }}
+                                              title={`Overprediction: ${stat.averageOverprediction.toFixed(3)}`}
+                                            >
+                                              {stat.averageOverprediction >
+                                                5 && (
+                                                <Text size="xs" c="white">
+                                                  {stat.averageOverprediction.toFixed(
+                                                    1,
+                                                  )}
+                                                </Text>
+                                              )}
+                                            </div>
+                                          )}
+                                        {stat.averageDispersion !== null && (
+                                          <div
+                                            style={{
+                                              width: `${(stat.averageDispersion / (userComponentTotal || 1)) * 100}%`,
+                                              height: "100%",
+                                              backgroundColor: "#adb5bd",
+                                              display: "flex",
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                            }}
+                                            title={`Dispersion: ${stat.averageDispersion.toFixed(3)}`}
+                                          >
+                                            {stat.averageDispersion > 5 && (
+                                              <Text size="xs" c="white">
+                                                {stat.averageDispersion.toFixed(
+                                                  1,
+                                                )}
+                                              </Text>
                                             )}
-                                          </Text>
+                                          </div>
                                         )}
-                                      </div>
-                                    )}
-                                  {stat.averageOverprediction !== null &&
-                                    stat.averageOverprediction > 0 && (
-                                      <div
-                                        style={{
-                                          width: `${(stat.averageOverprediction / (stat.averageWIS || 1)) * 100}%`,
-                                          height: "100%",
-                                          backgroundColor: "#f03e3e",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                        }}
-                                        title={`Overprediction: ${stat.averageOverprediction.toFixed(3)}`}
-                                      >
-                                        {stat.averageOverprediction > 5 && (
-                                          <Text size="xs" c="white">
-                                            {stat.averageOverprediction.toFixed(
-                                              1,
-                                            )}
-                                          </Text>
-                                        )}
-                                      </div>
-                                    )}
-                                  {stat.averageDispersion !== null && (
-                                    <div
-                                      style={{
-                                        width: `${(stat.averageDispersion / (stat.averageWIS || 1)) * 100}%`,
-                                        height: "100%",
-                                        backgroundColor: "#adb5bd",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                      }}
-                                      title={`Dispersion: ${stat.averageDispersion.toFixed(3)}`}
-                                    >
-                                      {stat.averageDispersion > 5 && (
-                                        <Text size="xs" c="white">
-                                          {stat.averageDispersion.toFixed(1)}
-                                        </Text>
-                                      )}
-                                    </div>
-                                  )}
-                                </Group>
+                                      </Group>
+                                    </>
+                                  );
+                                })()}
                               </div>
 
                               {/* Ensemble bar */}
                               {stat.averageEnsembleWIS !== null && (
                                 <div>
-                                  <Text size="xs" fw={500} mb={2}>
-                                    Ensemble
-                                  </Text>
-                                  <Group gap={0} style={{ height: 24 }}>
-                                    {stat.averageEnsembleUnderprediction !==
-                                      null &&
-                                      stat.averageEnsembleUnderprediction >
-                                        0 && (
-                                        <div
-                                          style={{
-                                            width: `${(stat.averageEnsembleUnderprediction / (stat.averageEnsembleWIS || 1)) * 100}%`,
-                                            height: "100%",
-                                            backgroundColor: "#4c6ef5",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                          }}
-                                          title={`Underprediction: ${stat.averageEnsembleUnderprediction.toFixed(3)}`}
-                                        >
-                                          {stat.averageEnsembleUnderprediction >
-                                            5 && (
-                                            <Text size="xs" c="white">
-                                              {stat.averageEnsembleUnderprediction.toFixed(
-                                                1,
-                                              )}
-                                            </Text>
-                                          )}
-                                        </div>
-                                      )}
-                                    {stat.averageEnsembleOverprediction !==
-                                      null &&
-                                      stat.averageEnsembleOverprediction >
-                                        0 && (
-                                        <div
-                                          style={{
-                                            width: `${(stat.averageEnsembleOverprediction / (stat.averageEnsembleWIS || 1)) * 100}%`,
-                                            height: "100%",
-                                            backgroundColor: "#f03e3e",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                          }}
-                                          title={`Overprediction: ${stat.averageEnsembleOverprediction.toFixed(3)}`}
-                                        >
-                                          {stat.averageEnsembleOverprediction >
-                                            5 && (
-                                            <Text size="xs" c="white">
-                                              {stat.averageEnsembleOverprediction.toFixed(
-                                                1,
-                                              )}
-                                            </Text>
-                                          )}
-                                        </div>
-                                      )}
-                                    {stat.averageEnsembleDispersion !==
-                                      null && (
-                                      <div
-                                        style={{
-                                          width: `${(stat.averageEnsembleDispersion / (stat.averageEnsembleWIS || 1)) * 100}%`,
-                                          height: "100%",
-                                          backgroundColor: "#adb5bd",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                        }}
-                                        title={`Dispersion: ${stat.averageEnsembleDispersion.toFixed(3)}`}
-                                      >
-                                        {stat.averageEnsembleDispersion > 5 && (
-                                          <Text size="xs" c="white">
-                                            {stat.averageEnsembleDispersion.toFixed(
-                                              1,
+                                  {(() => {
+                                    const ensembleComponentTotal =
+                                      (stat.averageEnsembleUnderprediction ||
+                                        0) +
+                                      (stat.averageEnsembleOverprediction ||
+                                        0) +
+                                      (stat.averageEnsembleDispersion || 0);
+                                    return (
+                                      <>
+                                        <Text size="xs" fw={500} mb={2}>
+                                          Ensemble
+                                        </Text>
+                                        <Group gap={0} style={{ height: 24 }}>
+                                          {stat.averageEnsembleUnderprediction !==
+                                            null &&
+                                            stat.averageEnsembleUnderprediction >
+                                              0 && (
+                                              <div
+                                                style={{
+                                                  width: `${(stat.averageEnsembleUnderprediction / (ensembleComponentTotal || 1)) * 100}%`,
+                                                  height: "100%",
+                                                  backgroundColor: "#4c6ef5",
+                                                  display: "flex",
+                                                  alignItems: "center",
+                                                  justifyContent: "center",
+                                                }}
+                                                title={`Underprediction: ${stat.averageEnsembleUnderprediction.toFixed(3)}`}
+                                              >
+                                                {stat.averageEnsembleUnderprediction >
+                                                  5 && (
+                                                  <Text size="xs" c="white">
+                                                    {stat.averageEnsembleUnderprediction.toFixed(
+                                                      1,
+                                                    )}
+                                                  </Text>
+                                                )}
+                                              </div>
                                             )}
-                                          </Text>
-                                        )}
-                                      </div>
-                                    )}
-                                  </Group>
+                                          {stat.averageEnsembleOverprediction !==
+                                            null &&
+                                            stat.averageEnsembleOverprediction >
+                                              0 && (
+                                              <div
+                                                style={{
+                                                  width: `${(stat.averageEnsembleOverprediction / (ensembleComponentTotal || 1)) * 100}%`,
+                                                  height: "100%",
+                                                  backgroundColor: "#f03e3e",
+                                                  display: "flex",
+                                                  alignItems: "center",
+                                                  justifyContent: "center",
+                                                }}
+                                                title={`Overprediction: ${stat.averageEnsembleOverprediction.toFixed(3)}`}
+                                              >
+                                                {stat.averageEnsembleOverprediction >
+                                                  5 && (
+                                                  <Text size="xs" c="white">
+                                                    {stat.averageEnsembleOverprediction.toFixed(
+                                                      1,
+                                                    )}
+                                                  </Text>
+                                                )}
+                                              </div>
+                                            )}
+                                          {stat.averageEnsembleDispersion !==
+                                            null && (
+                                            <div
+                                              style={{
+                                                width: `${(stat.averageEnsembleDispersion / (ensembleComponentTotal || 1)) * 100}%`,
+                                                height: "100%",
+                                                backgroundColor: "#adb5bd",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                              }}
+                                              title={`Dispersion: ${stat.averageEnsembleDispersion.toFixed(3)}`}
+                                            >
+                                              {stat.averageEnsembleDispersion >
+                                                5 && (
+                                                <Text size="xs" c="white">
+                                                  {stat.averageEnsembleDispersion.toFixed(
+                                                    1,
+                                                  )}
+                                                </Text>
+                                              )}
+                                            </div>
+                                          )}
+                                        </Group>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               )}
                             </Stack>
@@ -977,7 +1004,7 @@ const ForecastleStatsModal = ({ opened, onClose }) => {
                       <Table.Th>Date</Table.Th>
                       <Table.Th>Dataset</Table.Th>
                       <Table.Th>Location</Table.Th>
-                      <Table.Th>WIS</Table.Th>
+                      <Table.Th>rWIS</Table.Th>
                       <Table.Th>
                         <Tooltip label="Your rank vs all models">
                           <Text size="sm" style={{ cursor: "help" }}>

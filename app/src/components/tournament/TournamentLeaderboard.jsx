@@ -14,7 +14,12 @@ import {
 import { IconTrophy, IconAlertCircle } from "@tabler/icons-react";
 import { getLeaderboard } from "../../utils/tournamentAPI";
 import { TOURNAMENT_CONFIG } from "../../config";
-import { scoreUserForecast } from "../../utils/forecastleScoring";
+import {
+  calculateRelativeWIS,
+  getOfficialModels,
+  scoreModels,
+  scoreUserForecast,
+} from "../../utils/forecastleScoring";
 
 const addWeeksToDate = (dateString, weeks) => {
   const base = new Date(`${dateString}T00:00:00Z`);
@@ -79,7 +84,24 @@ const TournamentLeaderboard = ({
             return null;
           });
 
-          gtData[challenge.id] = groundTruthForHorizons;
+          const modelScores = scoreModels(
+            locationData.forecasts?.[challenge.forecastDate]?.[
+              challenge.target
+            ] || {},
+            challenge.horizons,
+            groundTruthForHorizons,
+          );
+          const { baseline: baselineKey } = getOfficialModels(
+            challenge.datasetKey,
+          );
+          const baselineScore =
+            modelScores.find((model) => model.modelName === baselineKey) ||
+            null;
+
+          gtData[challenge.id] = {
+            groundTruth: groundTruthForHorizons,
+            baselineWIS: baselineScore?.wis ?? null,
+          };
         } catch (error) {
           console.error(
             `Failed to load ground truth for challenge ${challenge.number}:`,
@@ -103,7 +125,7 @@ const TournamentLeaderboard = ({
         // Calculate WIS for each participant
         const scoredLeaderboard = data.map((participant) => {
           const challengeScores = {};
-          let totalWIS = 0;
+          let totalRelativeWIS = 0;
           let totalDispersion = 0;
           let totalUnderprediction = 0;
           let totalOverprediction = 0;
@@ -125,9 +147,10 @@ const TournamentLeaderboard = ({
               participant.submissions,
               challenge,
             );
-            const groundTruth = groundTruthData[challenge.id];
+            const challengeScoreData = groundTruthData[challenge.id];
 
-            if (!groundTruth || !forecasts || forecasts.length === 0) return;
+            if (!challengeScoreData || !forecasts || forecasts.length === 0)
+              return;
 
             // Convert forecasts to the format expected by scoreUserForecast
             const forecastEntries = forecasts.map((f) => ({
@@ -140,15 +163,22 @@ const TournamentLeaderboard = ({
             }));
 
             // Calculate WIS with components
-            const scoreResult = scoreUserForecast(forecastEntries, groundTruth);
-            if (scoreResult.wis !== null) {
+            const scoreResult = scoreUserForecast(
+              forecastEntries,
+              challengeScoreData.groundTruth,
+            );
+            const relativeWis = calculateRelativeWIS(
+              scoreResult.wis,
+              challengeScoreData.baselineWIS,
+            );
+            if (Number.isFinite(relativeWis)) {
               challengeScores[challenge.id] = {
-                wis: scoreResult.wis,
+                wis: relativeWis,
                 dispersion: scoreResult.dispersion,
                 underprediction: scoreResult.underprediction,
                 overprediction: scoreResult.overprediction,
               };
-              totalWIS += scoreResult.wis;
+              totalRelativeWIS += relativeWis;
               totalDispersion += scoreResult.dispersion;
               totalUnderprediction += scoreResult.underprediction;
               totalOverprediction += scoreResult.overprediction;
@@ -157,7 +187,7 @@ const TournamentLeaderboard = ({
           });
 
           const avgWIS =
-            validChallenges > 0 ? totalWIS / validChallenges : null;
+            validChallenges > 0 ? totalRelativeWIS / validChallenges : null;
           const avgDispersion =
             validChallenges > 0 ? totalDispersion / validChallenges : null;
           const avgUnderprediction =
@@ -167,7 +197,7 @@ const TournamentLeaderboard = ({
 
           return {
             ...participant,
-            totalWIS: validChallenges > 0 ? totalWIS : null,
+            totalWIS: validChallenges > 0 ? totalRelativeWIS : null,
             avgWIS,
             avgDispersion,
             avgUnderprediction,
@@ -268,8 +298,8 @@ const TournamentLeaderboard = ({
       </Title>
 
       <Text size="sm" color="dimmed">
-        Ranked by average WIS (lower is better). Completed participants ranked
-        first.
+        Ranked by average relative WIS (lower is better). Completed participants
+        ranked first.
       </Text>
 
       <Stack spacing="sm">
@@ -278,8 +308,8 @@ const TournamentLeaderboard = ({
             <tr>
               <th style={{ width: 60 }}>Rank</th>
               <th>Participant</th>
-              <th style={{ textAlign: "right", width: 90 }}>Avg WIS</th>
-              <th style={{ textAlign: "right", width: 90 }}>Total WIS</th>
+              <th style={{ textAlign: "right", width: 90 }}>Avg rWIS</th>
+              <th style={{ textAlign: "right", width: 90 }}>Total rWIS</th>
               {tournamentConfig.challenges.map((ch) => (
                 <th key={ch.number} style={{ textAlign: "center", width: 80 }}>
                   Ch {ch.number}

@@ -232,6 +232,52 @@ export const scoreUserForecast = (userForecasts, groundTruthValues) => {
 };
 
 /**
+ * Calculate relative WIS using an official baseline model score.
+ * Lower is better; the baseline model has relative WIS 1.0.
+ * @param {number} wis - Raw WIS for the forecast being scored
+ * @param {number} baselineWIS - Raw WIS for the official baseline model
+ * @returns {number|null} Relative WIS or null if unavailable
+ */
+export const calculateRelativeWIS = (wis, baselineWIS) => {
+  if (!Number.isFinite(wis) || !Number.isFinite(baselineWIS)) {
+    return null;
+  }
+
+  if (baselineWIS === 0) {
+    return wis === 0 ? 1 : null;
+  }
+
+  return wis / baselineWIS;
+};
+
+/**
+ * Attach relative WIS to an existing score object.
+ * @param {Object|null} score - Score object containing a raw `wis` field
+ * @param {number} baselineWIS - Raw WIS for the official baseline model
+ * @returns {Object|null} Score object with `relativeWis`
+ */
+export const addRelativeWISToScore = (score, baselineWIS) => {
+  if (!score) return score;
+
+  return {
+    ...score,
+    relativeWis: calculateRelativeWIS(score.wis, baselineWIS),
+  };
+};
+
+/**
+ * Compare score objects using relative WIS when available, otherwise raw WIS.
+ * @param {Object} a - Score-like object
+ * @param {Object} b - Score-like object
+ * @returns {number} Sort comparator result
+ */
+export const compareScores = (a, b) => {
+  const aValue = a?.relativeWis ?? a?.wis ?? Infinity;
+  const bValue = b?.relativeWis ?? b?.wis ?? Infinity;
+  return aValue - bValue;
+};
+
+/**
  * Get official ensemble and baseline model names for a dataset
  * @param {string} datasetKey - Dataset key (e.g., 'flusight', 'rsv', 'covid19')
  * @returns {Object} Object with ensembleKey and baselineKey
