@@ -32,6 +32,7 @@ import {
   TOURNAMENT_CONFIG,
   getChallengeDatasetLabel,
   getMaskedForecastDate,
+  shouldMaskChallengeYear,
 } from "../../config";
 import {
   scoreUserForecast,
@@ -624,6 +625,11 @@ const TournamentGame = ({
                   )}{" "}
                   • {challenge.displayName}
                 </Text>
+                {shouldMaskChallengeYear(tournamentConfig) && (
+                  <Text size="xs" c="dimmed" mt={4}>
+                    (Season year is hidden to prevent recall from memory).
+                  </Text>
+                )}
               </div>
 
               {error && (
