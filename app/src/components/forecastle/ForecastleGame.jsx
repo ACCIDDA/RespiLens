@@ -635,9 +635,10 @@ const ForecastleGame = () => {
             {scenarios.length > 0 && !allChallengesCompleted && (
               <Box>
                 <Text size="sm" c="dimmed" mb="xs">
-                  Inspired by wordle, make predictions on up to three challenges
-                  everyday. Each challenge are score against models, and results
-                  and statistics are stored locally in your browser. Good luck!
+                  Play our wordle-inspired forecasting game! Make predictions on
+                  three unique challenges everyday. Each challenge is scored
+                  against real models, and result history is stored locally in
+                  your browser. Good luck!
                 </Text>
                 <Group gap="xs" wrap="wrap">
                   <Text size="sm" fw={500}>
