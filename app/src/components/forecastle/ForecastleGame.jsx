@@ -100,7 +100,7 @@ const ForecastleGame = () => {
   const [submittedPayload, setSubmittedPayload] = useState(null);
   const [scores, setScores] = useState(null);
   const [inputMode, setInputMode] = useState("median"); // 'median', 'intervals', or 'scoring'
-  const [zoomedView, setZoomedView] = useState(true); // Start with zoomed view for easier input
+  const [zoomedView, setZoomedView] = useState(false); // Start with full history visible by default
   const [visibleRankings, setVisibleRankings] = useState(0); // For animated reveal
   const [copied, setCopied] = useState(false); // For copy button feedback
   const [statsModalOpened, setStatsModalOpened] = useState(false); // For stats modal
