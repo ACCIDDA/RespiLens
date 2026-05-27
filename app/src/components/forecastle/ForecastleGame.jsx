@@ -100,7 +100,7 @@ const ForecastleGame = () => {
   const [submittedPayload, setSubmittedPayload] = useState(null);
   const [scores, setScores] = useState(null);
   const [inputMode, setInputMode] = useState("median"); // 'median', 'intervals', or 'scoring'
-  const [zoomedView, setZoomedView] = useState(true); // Start with zoomed view for easier input
+  const [zoomedView, setZoomedView] = useState(false); // Start with full history visible by default
   const [visibleRankings, setVisibleRankings] = useState(0); // For animated reveal
   const [copied, setCopied] = useState(false); // For copy button feedback
   const [statsModalOpened, setStatsModalOpened] = useState(false); // For stats modal
@@ -635,9 +635,10 @@ const ForecastleGame = () => {
             {scenarios.length > 0 && !allChallengesCompleted && (
               <Box>
                 <Text size="sm" c="dimmed" mb="xs">
-                  Inspired by wordle, make predictions on up to three challenges
-                  everyday. Each challenge are score against models, and results
-                  and statistics are stored locally in your browser. Good luck!
+                  Play our wordle-inspired forecasting game! Make predictions on
+                  three unique challenges everyday. Each challenge is scored
+                  against real models, and result history is stored locally in
+                  your browser. Good luck!
                 </Text>
                 <Group gap="xs" wrap="wrap">
                   <Text size="sm" fw={500}>

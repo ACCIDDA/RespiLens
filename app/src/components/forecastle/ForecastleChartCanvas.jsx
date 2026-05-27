@@ -66,6 +66,7 @@ const ForecastleChartCanvasInner = ({
 }) => {
   const chartRef = useRef(null);
   const [dragState, setDragState] = useState(null);
+  const [displayedMax, setDisplayedMax] = useState(1);
 
   // For zoomed view, only show last 3 observed data points
   const visibleGroundTruth = useMemo(() => {
@@ -262,6 +263,12 @@ const ForecastleChartCanvasInner = ({
     );
     return entryMax > 0 ? entryMax * 1.1 : 1;
   }, [entries, maxValue, zoomedView, groundTruthSeries, showScoring, scores]);
+
+  useEffect(() => {
+    if (!dragState) {
+      setDisplayedMax(dynamicMax);
+    }
+  }, [dragState, dynamicMax]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -671,8 +678,12 @@ const ForecastleChartCanvasInner = ({
         tooltip: {
           callbacks: {
             title: (items) => {
-              const rawLabel = items?.[0]?.label;
-              return rawLabel ? dateLabelFormatter(rawLabel) : "";
+              const item = items?.[0];
+              const rawDate =
+                item?.raw?.x ??
+                item?.dataset?.data?.[item?.dataIndex ?? -1]?.x ??
+                item?.label;
+              return rawDate ? dateLabelFormatter(rawDate) : "";
             },
             label: (context) => {
               const datasetLabel = context.dataset.label || "";
@@ -713,7 +724,7 @@ const ForecastleChartCanvasInner = ({
         },
         y: {
           beginAtZero: true,
-          suggestedMax: dynamicMax,
+          suggestedMax: displayedMax,
           ticks: {
             color: "#000000",
             callback: (value) => Math.round(value).toLocaleString("en-US"),
@@ -730,7 +741,7 @@ const ForecastleChartCanvasInner = ({
         },
       },
     }),
-    [dateLabelFormatter, dynamicMax, labels, showScoring],
+    [dateLabelFormatter, displayedMax, labels, showScoring],
   );
 
   return (
