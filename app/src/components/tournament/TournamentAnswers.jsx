@@ -307,7 +307,12 @@ const TournamentAnswers = ({
           <Paper key={challenge.id} shadow="sm" p="lg" withBorder>
             <Stack spacing="md">
               <div>
-                <Title order={4}>{challenge.title}</Title>
+                <Title order={4}>
+                  {challenge.title}{" "}
+                  <Text component="span" inherit c="dimmed">
+                    (Challenge {challenge.number})
+                  </Text>
+                </Title>
                 <Text size="sm" c="dimmed">
                   Forecast date:{" "}
                   {getMaskedForecastDate(
