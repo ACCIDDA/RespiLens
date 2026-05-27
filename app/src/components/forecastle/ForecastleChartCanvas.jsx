@@ -671,8 +671,12 @@ const ForecastleChartCanvasInner = ({
         tooltip: {
           callbacks: {
             title: (items) => {
-              const rawLabel = items?.[0]?.label;
-              return rawLabel ? dateLabelFormatter(rawLabel) : "";
+              const item = items?.[0];
+              const rawDate =
+                item?.raw?.x ??
+                item?.dataset?.data?.[item?.dataIndex ?? -1]?.x ??
+                item?.label;
+              return rawDate ? dateLabelFormatter(rawDate) : "";
             },
             label: (context) => {
               const datasetLabel = context.dataset.label || "";
