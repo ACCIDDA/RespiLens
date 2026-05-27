@@ -309,7 +309,6 @@ const TournamentLeaderboard = ({
               <th style={{ width: 60 }}>Rank</th>
               <th>Participant</th>
               <th style={{ textAlign: "right", width: 90 }}>Avg rWIS</th>
-              <th style={{ textAlign: "right", width: 90 }}>Total rWIS</th>
               {tournamentConfig.challenges.map((ch) => (
                 <th key={ch.number} style={{ textAlign: "center", width: 80 }}>
                   Ch {ch.number}
@@ -418,13 +417,6 @@ const TournamentLeaderboard = ({
                     <td style={{ textAlign: "right" }}>
                       <Text size="sm" weight={isUser ? 700 : 400}>
                         {entry.avgWIS !== null ? entry.avgWIS.toFixed(1) : "—"}
-                      </Text>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <Text size="sm">
-                        {entry.totalWIS !== null
-                          ? entry.totalWIS.toFixed(1)
-                          : "—"}
                       </Text>
                     </td>
                     {tournamentConfig.challenges.map((ch) => (
