@@ -109,6 +109,54 @@ export const extractPlotData = (viewType, href, data) => {
       break;
     }
 
+    case "flu_peak": {
+      dataSuffix = "flu";
+      location = params.has("location") ? params.get("location") : "US";
+      fileName = `${location}_${dataSuffix}.json`;
+      fullDataPath = `flusight/${fileName}`;
+      target = "Peak flu hospitalizations";
+      const fluPeakModelsString = params.get("flu_models");
+      if (fluPeakModelsString) {
+        models = fluPeakModelsString.split(",");
+      } else {
+        const availablePeakModels = new Set();
+        Object.values(data?.peaks || {}).forEach((dateData) => {
+          Object.values(dateData || {}).forEach((targetData) => {
+            Object.keys(targetData || {}).forEach((model) =>
+              availablePeakModels.add(model),
+            );
+          });
+        });
+
+        models = availablePeakModels.has("FluSight-ensemble")
+          ? ["FluSight-ensemble"]
+          : Array.from(availablePeakModels).sort().slice(0, 1);
+      }
+
+      const fluPeakDatesString = params.get("flu_dates");
+      if (fluPeakDatesString) {
+        dates = fluPeakDatesString.split(",");
+      } else {
+        const availablePeakDates = Object.keys(data?.peaks || {});
+        if (availablePeakDates.length > 0) {
+          const mostRecent = availablePeakDates.sort().pop();
+          dates = mostRecent ? [mostRecent] : [];
+        } else {
+          throw new Error(
+            `Unable to extract plot data: No dates found in URL and no peak data available for ${viewType}.`,
+          );
+        }
+      }
+
+      scale = params.has("scale") ? params.get("scale") : "linear";
+      const fluPeakIntervalsString = params.get("intervals");
+      intervals = fluPeakIntervalsString
+        ? fluPeakIntervalsString.split(",")
+        : ["median", "ci50", "ci95"];
+      viewDisplayName = "Flu Peak Forecasts";
+      break;
+    }
+
     case "rsv_forecasts": {
       dataSuffix = "rsv";
       location = params.has("location") ? params.get("location") : "US";
