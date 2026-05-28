@@ -127,7 +127,10 @@ const ViewSelector = () => {
       >
         {title}
       </Text>
-      <Stack gap={0}>
+      <Stack
+        gap={0}
+        style={{ borderTop: "2px solid var(--mantine-color-gray-3)" }}
+      >
         {options.map((option, index) => {
           const isLastTopLevel = index === options.length - 1;
 
@@ -161,6 +164,7 @@ const ViewSelector = () => {
                       nested: true,
                       isLast: childIndex === option.children.length - 1,
                       isActive: viewType === child.value,
+                      rightSection: <IconChevronRight size={14} />,
                       onClick: () => handleViewSelect(child.value),
                     }),
                   )}
