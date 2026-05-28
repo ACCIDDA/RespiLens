@@ -1,113 +1,187 @@
-import { useMemo } from "react";
-import { Stack, Button, Menu, Paper } from "@mantine/core";
-import { IconChevronRight } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
+import { Stack, Button, Paper, Text, Box } from "@mantine/core";
+import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { useView } from "../hooks/useView";
-import { DATASETS, APP_CONFIG } from "../config";
+import { DATASETS } from "../config";
 
 const ViewSelector = () => {
   const { viewType, setViewType } = useView();
+  const [isFluExpanded, setIsFluExpanded] = useState(false);
 
-  const datasetOrder = useMemo(() => APP_CONFIG.datasetDisplayOrder, []);
-  const datasets = useMemo(
-    () => datasetOrder.map((key) => DATASETS[key]).filter(Boolean),
-    [datasetOrder],
-  );
+  const fluViews = [
+    {
+      label: "Forecasts",
+      value: DATASETS.flu.defaultView,
+    },
+    {
+      label: "Detailed view",
+      value: "fludetailed",
+    },
+    {
+      label: "Peak forecasts",
+      value: "flu_peak",
+    },
+    {
+      label: "MetroCast Forecasts",
+      value: DATASETS.metrocast.defaultView,
+    },
+  ];
 
-  const getDefaultProjectionsView = (dataset) => {
-    const projectionsView = dataset.views.find(
-      (view) => view.key === "projections",
-    );
-    return (
-      projectionsView?.value || dataset.defaultView || dataset.views[0]?.value
-    );
-  };
+  const forecastOptions = [
+    {
+      label: "Flu",
+      value: DATASETS.flu.defaultView,
+      children: fluViews,
+    },
+    {
+      label: "COVID-19",
+      value: DATASETS.covid.defaultView,
+    },
+    {
+      label: "RSV",
+      value: DATASETS.rsv.defaultView,
+    },
+  ];
 
-  const handleDatasetSelect = (dataset) => {
-    const targetView = getDefaultProjectionsView(dataset);
-    if (targetView) {
-      setViewType(targetView);
+  const surveillanceOptions = [
+    {
+      label: "NHSN",
+      value: DATASETS.nhsn.defaultView,
+    },
+    {
+      label: "NSSP",
+      value: DATASETS.nssp.defaultView,
+    },
+  ];
+
+  const fluViewValues = new Set(fluViews.map((view) => view.value));
+  const isFluActive = fluViewValues.has(viewType);
+
+  useEffect(() => {
+    if (isFluActive) {
+      setIsFluExpanded(true);
     }
-  };
+  }, [isFluActive]);
 
   const handleViewSelect = (value) => {
     setViewType(value);
   };
 
-  return (
+  const renderOptionButton = ({
+    label,
+    value,
+    isLast = false,
+    nested = false,
+    rightSection = null,
+    onClick,
+    isActive = false,
+  }) => (
+    <Button
+      key={value || label}
+      variant={isActive ? "light" : "subtle"}
+      color={isActive ? "blue" : "gray"}
+      size="sm"
+      radius={0}
+      fullWidth
+      justify="space-between"
+      rightSection={rightSection}
+      onClick={onClick}
+      styles={{
+        root: {
+          height: nested ? 34 : 36,
+          paddingInline: nested ? 20 : 14,
+          borderBottom: isLast
+            ? "none"
+            : "1px solid var(--mantine-color-gray-3)",
+        },
+        inner: {
+          width: "100%",
+          justifyContent: "space-between",
+        },
+        label: {
+          width: "100%",
+          textAlign: "left",
+          fontWeight: nested ? 500 : 600,
+        },
+      }}
+    >
+      {label}
+    </Button>
+  );
+
+  const renderSection = (title, options) => (
     <Paper
       shadow="sm"
       radius="md"
       withBorder
       style={{ display: "inline-block" }}
     >
-      <Stack gap={0}>
-        {datasets.map((dataset, index) => {
-          const isActive = dataset.views.some(
-            (view) => view.value === viewType,
-          );
-          const isLast = index === datasets.length - 1;
+      <Text
+        size="xs"
+        fw={700}
+        c="dimmed"
+        px="sm"
+        pt="sm"
+        pb={6}
+        style={{ letterSpacing: "0.08em" }}
+      >
+        {title}
+      </Text>
+      <Stack
+        gap={0}
+        style={{ borderTop: "2px solid var(--mantine-color-gray-3)" }}
+      >
+        {options.map((option, index) => {
+          const isLastTopLevel = index === options.length - 1;
+
+          if (!option.children) {
+            return renderOptionButton({
+              label: option.label,
+              value: option.value,
+              isLast: isLastTopLevel,
+              isActive: viewType === option.value,
+              rightSection: <IconChevronRight size={14} />,
+              onClick: () => handleViewSelect(option.value),
+            });
+          }
 
           return (
-            <Menu
-              key={dataset.shortName}
-              shadow="md"
-              position="right-end"
-              offset={5}
-              withinPortal
-              trigger="hover"
-            >
-              <Menu.Target>
-                <Button
-                  variant={isActive ? "light" : "subtle"}
-                  color={isActive ? "blue" : "gray"}
-                  size="sm"
-                  rightSection={<IconChevronRight size={14} />}
-                  radius={0}
-                  fullWidth
-                  onClick={() => handleDatasetSelect(dataset)}
-                  styles={{
-                    root: {
-                      height: 36,
-                      borderBottom: isLast
-                        ? "none"
-                        : "1px solid var(--mantine-color-gray-3)",
-                    },
-                    inner: {
-                      width: "100%",
-                      justifyContent: "space-between",
-                    },
-                    label: {
-                      width: "100%",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    },
-                  }}
-                >
-                  {dataset.fullName}
-                </Button>
-              </Menu.Target>
-              <Menu.Dropdown style={{ maxHeight: 200, overflowY: "auto" }}>
-                {dataset.views.map((view) => (
-                  <Menu.Item
-                    key={view.value}
-                    onClick={() => handleViewSelect(view.value)}
-                    color={view.value === viewType ? "blue" : undefined}
-                    leftSection={
-                      view.value === viewType ? (
-                        <IconChevronRight size={14} />
-                      ) : null
-                    }
-                  >
-                    {view.label}
-                  </Menu.Item>
-                ))}
-              </Menu.Dropdown>
-            </Menu>
+            <Box key={option.label}>
+              {renderOptionButton({
+                label: option.label,
+                value: option.value,
+                isLast: !isFluExpanded && isLastTopLevel,
+                isActive: isFluActive,
+                rightSection: <IconChevronDown size={14} />,
+                onClick: () => setIsFluExpanded((expanded) => !expanded),
+              })}
+              {isFluExpanded && (
+                <Stack gap={0}>
+                  {option.children.map((child, childIndex) =>
+                    renderOptionButton({
+                      label: child.label,
+                      value: child.value,
+                      nested: true,
+                      isLast: childIndex === option.children.length - 1,
+                      isActive: viewType === child.value,
+                      rightSection: <IconChevronRight size={14} />,
+                      onClick: () => handleViewSelect(child.value),
+                    }),
+                  )}
+                </Stack>
+              )}
+            </Box>
           );
         })}
       </Stack>
     </Paper>
+  );
+
+  return (
+    <Stack gap="md">
+      {renderSection("FORECASTS", forecastOptions)}
+      {renderSection("SURVEILLANCE DATA", surveillanceOptions)}
+    </Stack>
   );
 };
 
