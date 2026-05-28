@@ -613,19 +613,17 @@ const DataVisualizationContainer = ({ disableSeo = false }) => {
                   )}
                   {windowSize.width <= 800 && (
                     <Group gap="xs">
-                      {viewType !== "flu_peak" && (
-                        <Button
-                          variant="light"
-                          size="xs"
-                          mr="xs"
-                          color={isAdded ? "green" : "blue"}
-                          className={isAdded ? "added-text-pulse" : ""}
-                          leftSection={<IconChartScatter size={16} />}
-                          onClick={handleSaveToMyPlots}
-                        >
-                          {isAdded ? "Added!" : "Add to My Plots"}
-                        </Button>
-                      )}
+                      <Button
+                        variant="light"
+                        size="xs"
+                        mr="xs"
+                        color={isAdded ? "green" : "blue"}
+                        className={isAdded ? "added-text-pulse" : ""}
+                        leftSection={<IconChartScatter size={16} />}
+                        onClick={handleSaveToMyPlots}
+                      >
+                        {isAdded ? "Added!" : "Add to My Plots"}
+                      </Button>
                       <Tooltip
                         label={
                           clipboard.copied
@@ -661,19 +659,17 @@ const DataVisualizationContainer = ({ disableSeo = false }) => {
                 )}
                 {windowSize.width > 800 && (
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    {viewType !== "flu_peak" && (
-                      <Button
-                        variant="light"
-                        size="xs"
-                        mr="xs"
-                        color={isAdded ? "green" : "blue"}
-                        className={isAdded ? "added-text-pulse" : ""}
-                        leftSection={<IconChartScatter size={16} />}
-                        onClick={handleSaveToMyPlots}
-                      >
-                        {isAdded ? "Added!" : "Add to My Plots"}
-                      </Button>
-                    )}
+                    <Button
+                      variant="light"
+                      size="xs"
+                      mr="xs"
+                      color={isAdded ? "green" : "blue"}
+                      className={isAdded ? "added-text-pulse" : ""}
+                      leftSection={<IconChartScatter size={16} />}
+                      onClick={handleSaveToMyPlots}
+                    >
+                      {isAdded ? "Added!" : "Add to My Plots"}
+                    </Button>
                     <Tooltip
                       label={
                         clipboard.copied

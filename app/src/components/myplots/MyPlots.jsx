@@ -281,6 +281,8 @@ const MyPlots = () => {
                   const showViewBadge =
                     normalizeLabel(plot.viewDisplayName) !==
                     normalizeLabel(pathogenLabel);
+                  const showTargetBadge =
+                    plot.viewType === "flu_peak" && plot.settings?.target;
 
                   return (
                     <Paper
@@ -348,11 +350,18 @@ const MyPlots = () => {
                           </Group>
                         </Group>
 
-                        {showViewBadge && (
+                        {(showViewBadge || showTargetBadge) && (
                           <Group gap="xs">
                             <Badge color="gray" variant="outline" size="xs">
-                              {plot.viewDisplayName}
+                              {showViewBadge
+                                ? plot.viewDisplayName
+                                : plot.settings.target}
                             </Badge>
+                            {showViewBadge && showTargetBadge && (
+                              <Badge color="blue" variant="light" size="xs">
+                                {plot.settings.target}
+                              </Badge>
+                            )}
                           </Group>
                         )}
 
