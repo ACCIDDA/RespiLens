@@ -115,7 +115,7 @@ const TournamentGame = ({
   const [submissionErrors, setSubmissionErrors] = useState({});
   const [scores, setScores] = useState(null);
   const [inputMode, setInputMode] = useState("median"); // 'median', 'intervals', or 'scoring'
-  const [zoomedView, setZoomedView] = useState(true);
+  const [zoomedView, setZoomedView] = useState(false);
   const [visibleRankings, setVisibleRankings] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -158,7 +158,7 @@ const TournamentGame = ({
           if (!response.ok) continue;
 
           const locationData = await response.json();
-          scData[ch.number] = locationData;
+          scData[ch.id] = locationData;
 
           const groundTruthDates = locationData.ground_truth?.dates || [];
           const groundTruthValues =
@@ -176,7 +176,7 @@ const TournamentGame = ({
             return null;
           });
 
-          gtData[ch.number] = {
+          gtData[ch.id] = {
             values: groundTruthForHorizons,
             dates: horizonDates,
             fullSeries: locationData.ground_truth,
@@ -269,9 +269,9 @@ const TournamentGame = ({
   ]);
 
   const latestObservationValue = useMemo(() => {
-    if (!challenge || !scenarioData[challenge.number]) return 1000;
+    if (!challenge || !scenarioData[challenge.id]) return 1000;
 
-    const locationData = scenarioData[challenge.number];
+    const locationData = scenarioData[challenge.id];
     const groundTruthDates = locationData.ground_truth?.dates || [];
     const groundTruthValues =
       locationData.ground_truth?.[challenge.target] || [];
@@ -335,9 +335,9 @@ const TournamentGame = ({
   }, [challengeId, initialInputs, savedSubmissions, inputMode]);
 
   const groundTruthSeries = useMemo(() => {
-    if (!challenge || !scenarioData[challenge.number]) return [];
+    if (!challenge || !scenarioData[challenge.id]) return [];
 
-    const locationData = scenarioData[challenge.number];
+    const locationData = scenarioData[challenge.id];
     const groundTruthDates = locationData.ground_truth?.dates || [];
     const groundTruthValues =
       locationData.ground_truth?.[challenge.target] || [];
@@ -470,14 +470,14 @@ const TournamentGame = ({
       );
 
       // Calculate scores
-      const gtData = groundTruthData[challenge.number];
+      const gtData = groundTruthData[challenge.id];
       if (!gtData) {
         throw new Error("Ground truth data not available");
       }
 
       const userScore = scoreUserForecast(forecastEntries, gtData.values);
 
-      const locationData = scenarioData[challenge.number];
+      const locationData = scenarioData[challenge.id];
       const modelScores = scoreModels(
         locationData.forecasts?.[challenge.forecastDate]?.[challenge.target] ||
           {},
