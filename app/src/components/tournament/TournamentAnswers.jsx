@@ -93,6 +93,8 @@ const getSubmissionByChallenge = (submissions, challenge) => {
 const TournamentAnswers = ({
   tournamentConfig = TOURNAMENT_CONFIG,
   participantId,
+  completedCount: completedCountProp = null,
+  isActive = false,
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -103,6 +105,23 @@ const TournamentAnswers = ({
   useEffect(() => {
     const loadAnswers = async () => {
       if (!participantId) {
+        setLoading(false);
+        return;
+      }
+
+      if (!isActive && completedCountProp !== null) {
+        setLoading(false);
+        return;
+      }
+
+      if (
+        Number.isFinite(completedCountProp) &&
+        completedCountProp < tournamentConfig.numChallenges
+      ) {
+        setSubmissionsByChallenge({});
+        setChallengeData({});
+        setParticipantFound(true);
+        setError(null);
         setLoading(false);
         return;
       }
@@ -212,7 +231,7 @@ const TournamentAnswers = ({
     };
 
     loadAnswers();
-  }, [participantId, tournamentConfig]);
+  }, [participantId, tournamentConfig, completedCountProp, isActive]);
 
   const completedCount = useMemo(
     () => Object.keys(submissionsByChallenge).length,

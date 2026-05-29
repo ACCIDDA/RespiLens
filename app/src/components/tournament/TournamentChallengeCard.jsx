@@ -56,7 +56,7 @@ const TournamentChallengeCard = ({
   const [error, setError] = useState(null);
   const [inputMode, setInputMode] = useState("median"); // 'median' or 'intervals'
   const [existingSubmission, setExistingSubmission] = useState(null);
-  const [zoomedView, setZoomedView] = useState(false); // Start with full history visible
+  const [zoomedView, setZoomedView] = useState(true); // Start with zoomed view
   const isSubmissionLocked =
     tournamentConfig.features?.allowResubmit === false && isCompleted;
 
