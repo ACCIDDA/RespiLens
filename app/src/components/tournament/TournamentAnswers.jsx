@@ -13,7 +13,7 @@ import {
 } from "@mantine/core";
 import { IconAlertCircle, IconTarget } from "@tabler/icons-react";
 import { TOURNAMENT_CONFIG, getMaskedForecastDate } from "../../config";
-import { getLeaderboard } from "../../utils/tournamentAPI";
+import { getParticipant } from "../../utils/tournamentAPI";
 import ForecastleChartCanvas from "../forecastle/ForecastleChartCanvas";
 
 const addWeeksToDate = (dateString, weeks) => {
@@ -111,10 +111,12 @@ const TournamentAnswers = ({
       setError(null);
 
       try {
-        const leaderboard = await getLeaderboard(tournamentConfig);
-        const participantEntry =
-          leaderboard.find((entry) => entry.participantId === participantId) ||
-          null;
+        const participantData = await getParticipant(
+          participantId,
+          tournamentConfig,
+        );
+        const participantEntry = participantData?.participant || null;
+        const participantSubmissions = participantData?.submissions || [];
 
         if (!participantEntry) {
           setParticipantFound(false);
@@ -128,7 +130,7 @@ const TournamentAnswers = ({
         const nextSubmissionsByChallenge = {};
         tournamentConfig.challenges.forEach((challenge) => {
           const submission = getSubmissionByChallenge(
-            participantEntry.submissions || [],
+            participantSubmissions,
             challenge,
           );
           const forecasts = getSubmissionForecasts(submission);
