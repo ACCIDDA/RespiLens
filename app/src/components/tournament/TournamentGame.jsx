@@ -109,6 +109,7 @@ const TournamentGame = ({
   participantId,
   participantName,
   onAllCompleted,
+  onProgressChange,
 }) => {
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
   const [completedChallenges, setCompletedChallenges] = useState(new Set());
@@ -235,6 +236,10 @@ const TournamentGame = ({
     challengeIdByNumber,
     tournamentConfig,
   ]);
+
+  useEffect(() => {
+    onProgressChange?.(completedChallenges.size);
+  }, [completedChallenges, onProgressChange]);
 
   useEffect(() => {
     if (inputMode === "scoring") {

@@ -13,7 +13,7 @@ import {
 } from "@mantine/core";
 import { IconAlertCircle, IconTarget } from "@tabler/icons-react";
 import { TOURNAMENT_CONFIG, getMaskedForecastDate } from "../../config";
-import { getLeaderboard } from "../../utils/tournamentAPI";
+import { getParticipant } from "../../utils/tournamentAPI";
 import ForecastleChartCanvas from "../forecastle/ForecastleChartCanvas";
 
 const addWeeksToDate = (dateString, weeks) => {
@@ -93,6 +93,8 @@ const getSubmissionByChallenge = (submissions, challenge) => {
 const TournamentAnswers = ({
   tournamentConfig = TOURNAMENT_CONFIG,
   participantId,
+  completedCount: completedCountProp = null,
+  isActive = false,
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -107,14 +109,33 @@ const TournamentAnswers = ({
         return;
       }
 
+      if (!isActive && completedCountProp !== null) {
+        setLoading(false);
+        return;
+      }
+
+      if (
+        Number.isFinite(completedCountProp) &&
+        completedCountProp < tournamentConfig.numChallenges
+      ) {
+        setSubmissionsByChallenge({});
+        setChallengeData({});
+        setParticipantFound(true);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
       try {
-        const leaderboard = await getLeaderboard(tournamentConfig);
-        const participantEntry =
-          leaderboard.find((entry) => entry.participantId === participantId) ||
-          null;
+        const participantData = await getParticipant(
+          participantId,
+          tournamentConfig,
+        );
+        const participantEntry = participantData?.participant || null;
+        const participantSubmissions = participantData?.submissions || [];
 
         if (!participantEntry) {
           setParticipantFound(false);
@@ -128,7 +149,7 @@ const TournamentAnswers = ({
         const nextSubmissionsByChallenge = {};
         tournamentConfig.challenges.forEach((challenge) => {
           const submission = getSubmissionByChallenge(
-            participantEntry.submissions || [],
+            participantSubmissions,
             challenge,
           );
           const forecasts = getSubmissionForecasts(submission);
@@ -210,7 +231,7 @@ const TournamentAnswers = ({
     };
 
     loadAnswers();
-  }, [participantId, tournamentConfig]);
+  }, [participantId, tournamentConfig, completedCountProp, isActive]);
 
   const completedCount = useMemo(
     () => Object.keys(submissionsByChallenge).length,

@@ -16,6 +16,7 @@ const TournamentDashboard = ({ tournamentConfig = TOURNAMENT_CONFIG }) => {
   const [participantName, setParticipantName] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("challenges");
+  const [completedCount, setCompletedCount] = useState(null);
 
   // Load participant data on mount
   useEffect(() => {
@@ -32,6 +33,7 @@ const TournamentDashboard = ({ tournamentConfig = TOURNAMENT_CONFIG }) => {
   const handleRegistration = (id, name) => {
     setParticipantId(id);
     setParticipantName(name);
+    setCompletedCount(0);
   };
 
   // Navigate to leaderboard
@@ -87,6 +89,7 @@ const TournamentDashboard = ({ tournamentConfig = TOURNAMENT_CONFIG }) => {
             participantId={participantId}
             participantName={participantName}
             onAllCompleted={goToLeaderboard}
+            onProgressChange={setCompletedCount}
           />
         </Tabs.Panel>
 
@@ -101,6 +104,8 @@ const TournamentDashboard = ({ tournamentConfig = TOURNAMENT_CONFIG }) => {
           <TournamentAnswers
             tournamentConfig={tournamentConfig}
             participantId={participantId}
+            completedCount={completedCount}
+            isActive={activeTab === "answers"}
           />
         </Tabs.Panel>
       </Tabs>
