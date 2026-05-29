@@ -56,7 +56,7 @@ const TournamentChallengeCard = ({
   const [error, setError] = useState(null);
   const [inputMode, setInputMode] = useState("median"); // 'median' or 'intervals'
   const [existingSubmission, setExistingSubmission] = useState(null);
-  const [zoomedView, setZoomedView] = useState(true); // Start with zoomed view
+  const [zoomedView, setZoomedView] = useState(false); // Start with full history visible
   const isSubmissionLocked =
     tournamentConfig.features?.allowResubmit === false && isCompleted;
 
@@ -110,6 +110,7 @@ const TournamentChallengeCard = ({
 
   // Reset forecast entries when latestObservationValue changes
   useEffect(() => {
+    setZoomedView(false);
     setForecastEntries(
       initialiseForecastInputs(
         challenge.horizons || [1, 2, 3],

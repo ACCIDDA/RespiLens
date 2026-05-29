@@ -116,7 +116,7 @@ const TournamentGame = ({
   const [submissionErrors, setSubmissionErrors] = useState({});
   const [scores, setScores] = useState(null);
   const [inputMode, setInputMode] = useState("median"); // 'median', 'intervals', or 'scoring'
-  const [zoomedView, setZoomedView] = useState(true);
+  const [zoomedView, setZoomedView] = useState(false);
   const [visibleRankings, setVisibleRankings] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -321,6 +321,7 @@ const TournamentGame = ({
     previousChallengeIdRef.current = challengeId;
 
     if (challengeChanged) {
+      setZoomedView(false);
       if (hasSavedForecasts) {
         setForecastEntries(restoreForecastEntries(savedSubmission.forecasts));
       } else {

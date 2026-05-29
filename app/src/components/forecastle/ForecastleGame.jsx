@@ -153,6 +153,7 @@ const ForecastleGame = () => {
     setSubmittedPayload(null);
     setScores(null);
     setInputMode("median");
+    setZoomedView(false);
     setVisibleRankings(0);
 
     // If this challenge is already completed, load the saved data and show scoring
