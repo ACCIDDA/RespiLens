@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Alert, Container, Tabs } from "@mantine/core";
-import { IconTrophy, IconChartLine } from "@tabler/icons-react";
+import { IconTrophy, IconChartLine, IconTarget } from "@tabler/icons-react";
 import {
   getStoredParticipantId,
   getStoredParticipantName,
@@ -9,6 +9,7 @@ import { TOURNAMENT_CONFIG } from "../../config";
 import TournamentRegistration from "./TournamentRegistration";
 import TournamentGame from "./TournamentGame";
 import TournamentLeaderboard from "./TournamentLeaderboard";
+import TournamentAnswers from "./TournamentAnswers";
 
 const TournamentDashboard = ({ tournamentConfig = TOURNAMENT_CONFIG }) => {
   const [participantId, setParticipantId] = useState(null);
@@ -75,6 +76,9 @@ const TournamentDashboard = ({ tournamentConfig = TOURNAMENT_CONFIG }) => {
           >
             Leaderboard
           </Tabs.Tab>
+          <Tabs.Tab value="answers" leftSection={<IconTarget size={16} />}>
+            Answers
+          </Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="challenges" pt="md">
@@ -88,6 +92,13 @@ const TournamentDashboard = ({ tournamentConfig = TOURNAMENT_CONFIG }) => {
 
         <Tabs.Panel value="leaderboard" pt="md">
           <TournamentLeaderboard
+            tournamentConfig={tournamentConfig}
+            participantId={participantId}
+          />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="answers" pt="md">
+          <TournamentAnswers
             tournamentConfig={tournamentConfig}
             participantId={participantId}
           />

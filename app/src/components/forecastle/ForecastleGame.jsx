@@ -38,10 +38,12 @@ import {
 import { validateForecastSubmission } from "../../utils/forecastleValidation";
 import { FORECASTLE_CONFIG } from "../../config";
 import {
+  addRelativeWISToScore,
+  compareScores,
   extractGroundTruthForHorizons,
-  scoreUserForecast,
-  scoreModels,
   getOfficialModels,
+  scoreModels,
+  scoreUserForecast,
 } from "../../utils/forecastleScoring";
 import {
   saveForecastleGame,
@@ -59,6 +61,30 @@ const addWeeksToDate = (dateString, weeks) => {
   }
   base.setUTCDate(base.getUTCDate() + weeks * 7);
   return base.toISOString().slice(0, 10);
+};
+
+const normalizeScoresForDisplay = (userScore, modelScores, datasetKey) => {
+  const { ensemble: ensembleKey, baseline: baselineKey } =
+    getOfficialModels(datasetKey);
+  const baselineScore =
+    modelScores.find((model) => model.modelName === baselineKey) || null;
+  const baselineWIS = baselineScore?.wis ?? null;
+  const ensembleScore =
+    modelScores.find((model) => model.modelName === ensembleKey) || null;
+
+  const normalizedUserScore = addRelativeWISToScore(userScore, baselineWIS);
+  const normalizedModelScores = modelScores
+    .map((model) => addRelativeWISToScore(model, baselineWIS))
+    .sort(compareScores);
+
+  return {
+    user: normalizedUserScore,
+    models: normalizedModelScores,
+    baselineScore: addRelativeWISToScore(baselineScore, baselineWIS),
+    ensembleScore: addRelativeWISToScore(ensembleScore, baselineWIS),
+    baselineKey,
+    ensembleKey,
+  };
 };
 
 const ForecastleGame = () => {
@@ -100,7 +126,7 @@ const ForecastleGame = () => {
   const [submittedPayload, setSubmittedPayload] = useState(null);
   const [scores, setScores] = useState(null);
   const [inputMode, setInputMode] = useState("median"); // 'median', 'intervals', or 'scoring'
-  const [zoomedView, setZoomedView] = useState(true); // Start with zoomed view for easier input
+  const [zoomedView, setZoomedView] = useState(false); // Start with full history visible by default
   const [visibleRankings, setVisibleRankings] = useState(0); // For animated reveal
   const [copied, setCopied] = useState(false); // For copy button feedback
   const [statsModalOpened, setStatsModalOpened] = useState(false); // For stats modal
@@ -158,10 +184,18 @@ const ForecastleGame = () => {
           scenario.horizons,
           groundTruthValues,
         );
+        const normalizedScores = normalizeScoresForDisplay(
+          userScore,
+          modelScores,
+          scenario.dataset.key,
+        );
 
         setScores({
-          user: userScore,
-          models: modelScores,
+          user: normalizedScores.user,
+          models: normalizedScores.models,
+          rawUser: userScore,
+          rawModels: modelScores,
+          baselineWIS: normalizedScores.baselineScore?.wis ?? null,
           groundTruth: groundTruthValues,
           horizonDates,
         });
@@ -282,32 +316,36 @@ const ForecastleGame = () => {
         scenario.horizons,
         groundTruthValues,
       );
+      const normalizedScores = normalizeScoresForDisplay(
+        userScore,
+        modelScores,
+        scenario.dataset.key,
+      );
 
       setScores({
-        user: userScore,
-        models: modelScores,
+        user: normalizedScores.user,
+        models: normalizedScores.models,
+        rawUser: userScore,
+        rawModels: modelScores,
+        baselineWIS: normalizedScores.baselineScore?.wis ?? null,
         groundTruth: groundTruthValues,
         horizonDates,
       });
 
       // Calculate ranking information
-      const { ensemble: ensembleKey, baseline: baselineKey } =
-        getOfficialModels(scenario.dataset.key);
-
-      // Find ensemble and baseline in the model scores
-      const ensembleScore = modelScores.find(
-        (m) => m.modelName === ensembleKey,
-      );
-      const baselineScore = modelScores.find(
-        (m) => m.modelName === baselineKey,
-      );
+      const { ensembleKey, baselineKey, ensembleScore, baselineScore } =
+        normalizedScores;
 
       // Create unified ranking list
       const allRanked = [
-        { name: "user", wis: userScore.wis, isUser: true },
-        ...modelScores.map((m) => ({
+        {
+          name: "user",
+          wis: normalizedScores.user.relativeWis ?? normalizedScores.user.wis,
+          isUser: true,
+        },
+        ...normalizedScores.models.map((m) => ({
           name: m.modelName,
-          wis: m.wis,
+          wis: m.relativeWis ?? m.wis,
           isUser: false,
         })),
       ].sort((a, b) => a.wis - b.wis);
@@ -339,16 +377,19 @@ const ForecastleGame = () => {
           baselineRank,
           // User scores
           userWIS: userScore.wis,
+          userRelativeWIS: normalizedScores.user.relativeWis,
           userDispersion: userScore.dispersion || 0,
           userUnderprediction: userScore.underprediction || 0,
           userOverprediction: userScore.overprediction || 0,
           // Ensemble scores
           ensembleWIS: ensembleScore?.wis || null,
+          ensembleRelativeWIS: ensembleScore?.relativeWis || null,
           ensembleDispersion: ensembleScore?.dispersion || 0,
           ensembleUnderprediction: ensembleScore?.underprediction || 0,
           ensembleOverprediction: ensembleScore?.overprediction || 0,
           // Baseline scores
           baselineWIS: baselineScore?.wis || null,
+          baselineRelativeWIS: baselineScore?.relativeWis || null,
           baselineDispersion: baselineScore?.dispersion || 0,
           baselineUnderprediction: baselineScore?.underprediction || 0,
           baselineOverprediction: baselineScore?.overprediction || 0,
@@ -635,9 +676,10 @@ const ForecastleGame = () => {
             {scenarios.length > 0 && !allChallengesCompleted && (
               <Box>
                 <Text size="sm" c="dimmed" mb="xs">
-                  Inspired by wordle, make predictions on up to three challenges
-                  everyday. Each challenge are score against models, and results
-                  and statistics are stored locally in your browser. Good luck!
+                  Play our wordle-inspired forecasting game! Make predictions on
+                  three unique challenges everyday. Each challenge is scored
+                  against real models, and result history is stored locally in
+                  your browser. Good luck!
                 </Text>
                 <Group gap="xs" wrap="wrap">
                   <Text size="sm" fw={500}>
@@ -712,7 +754,8 @@ const ForecastleGame = () => {
                     {saveError}
                   </Alert>
                 )}
-                {scores.user.wis !== null ? (
+                {scores.user.relativeWis !== null ||
+                scores.user.wis !== null ? (
                   <>
                     <Text size="sm" c="dimmed">
                       Based on {scores.user.validCount} of{" "}
@@ -736,12 +779,13 @@ const ForecastleGame = () => {
                               const allEntries = [
                                 {
                                   name: "You",
-                                  wis: scores.user.wis,
+                                  wis:
+                                    scores.user.relativeWis ?? scores.user.wis,
                                   isUser: true,
                                 },
                                 ...scores.models.map((m) => ({
                                   name: m.modelName,
-                                  wis: m.wis,
+                                  wis: m.relativeWis ?? m.wis,
                                   isUser: false,
                                   isHub: m.modelName === ensembleKey,
                                 })),
@@ -957,7 +1001,7 @@ const ForecastleGame = () => {
                                                 : "light"
                                             }
                                           >
-                                            WIS: {entry.wis.toFixed(3)}
+                                            rWIS: {entry.wis.toFixed(3)}
                                           </Badge>
                                         </Group>
                                       </Paper>
@@ -1006,12 +1050,12 @@ const ForecastleGame = () => {
                             const allEntries = [
                               {
                                 name: "You",
-                                wis: scores.user.wis,
+                                wis: scores.user.relativeWis ?? scores.user.wis,
                                 isUser: true,
                               },
                               ...scores.models.map((m) => ({
                                 name: m.modelName,
-                                wis: m.wis,
+                                wis: m.relativeWis ?? m.wis,
                                 isUser: false,
                                 isHub: m.modelName === ensembleKey,
                               })),
@@ -1064,7 +1108,7 @@ const ForecastleGame = () => {
                                 }
                               }
 
-                              return `Forecastle ${scenario.challengeDate}\n${emojis.join("")}\nRank #${userRank}/${totalModels} • WIS: ${scores.user.wis.toFixed(3)}\n${comparisonText}\n${datasetLabel} • ${scenario.location.abbreviation}`;
+                              return `Forecastle ${scenario.challengeDate}\n${emojis.join("")}\nRank #${userRank}/${totalModels} • rWIS: ${(scores.user.relativeWis ?? scores.user.wis).toFixed(3)}\n${comparisonText}\n${datasetLabel} • ${scenario.location.abbreviation}`;
                             };
 
                             const handleCopy = async () => {
@@ -1159,8 +1203,11 @@ const ForecastleGame = () => {
                                         "0 1px 1px rgba(255, 255, 255, 0.6)",
                                     }}
                                   >
-                                    WIS: {scores.user.wis.toFixed(3)} •{" "}
-                                    {scenario.dataset.label} •{" "}
+                                    rWIS:{" "}
+                                    {(
+                                      scores.user.relativeWis ?? scores.user.wis
+                                    ).toFixed(3)}{" "}
+                                    • {scenario.dataset.label} •{" "}
                                     {scenario.location.abbreviation}
                                   </Text>
                                 </Stack>

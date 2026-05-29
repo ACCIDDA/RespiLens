@@ -3,9 +3,13 @@
  * WIS is re-exported from the canonical Forecastle scoring utility.
  */
 
-import { calculateWIS } from "../../utils/forecastleScoring.js";
+import {
+  calculateRelativeWIS,
+  calculateWIS,
+} from "../../utils/forecastleScoring.js";
 
 export { calculateWIS };
+export { calculateRelativeWIS };
 
 /**
  * Validate forecast intervals
@@ -88,4 +92,52 @@ export const calculateAverageWIS = (forecasts, observations) => {
   if (wisScores.length === 0) return null;
 
   return wisScores.reduce((sum, score) => sum + score, 0) / wisScores.length;
+};
+
+/**
+ * Calculate average relative WIS across multiple forecasts.
+ * @param {Array} forecasts - Array of forecast objects
+ * @param {Array} observations - Array of observed values
+ * @param {Array} baselineScores - Array of raw baseline WIS values
+ * @returns {number|null} Average relative WIS
+ */
+export const calculateAverageRelativeWIS = (
+  forecasts,
+  observations,
+  baselineScores,
+) => {
+  if (
+    !forecasts ||
+    !observations ||
+    !baselineScores ||
+    forecasts.length !== observations.length ||
+    forecasts.length !== baselineScores.length
+  ) {
+    return null;
+  }
+
+  const relativeScores = forecasts
+    .map((forecast, idx) => {
+      const obs = observations[idx];
+      if (!Number.isFinite(obs)) return null;
+
+      const result = calculateWIS(
+        obs,
+        forecast.median,
+        forecast.q25,
+        forecast.q75,
+        forecast.q025,
+        forecast.q975,
+      );
+
+      return calculateRelativeWIS(result?.wis ?? null, baselineScores[idx]);
+    })
+    .filter((score) => Number.isFinite(score));
+
+  if (relativeScores.length === 0) return null;
+
+  return (
+    relativeScores.reduce((sum, score) => sum + score, 0) /
+    relativeScores.length
+  );
 };

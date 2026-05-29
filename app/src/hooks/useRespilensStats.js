@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { getForecastleGames } from "../utils/respilensStorage";
-import { calculateWIS } from "../utils/forecastleScoring";
+import { calculateRelativeWIS, calculateWIS } from "../utils/forecastleScoring";
 
 /**
  * Calculate interval coverage for a single game
@@ -80,6 +80,9 @@ function computeGameStats(game) {
   });
 
   const wis = validCount > 0 ? sumWIS / validCount : null;
+  const relativeWis =
+    game.userRelativeWIS ??
+    calculateRelativeWIS(game.userWIS ?? wis, game.baselineWIS ?? null);
   const dispersion = validCount > 0 ? sumDispersion / validCount : null;
   const underprediction =
     validCount > 0 ? sumUnderprediction / validCount : null;
@@ -99,10 +102,12 @@ function computeGameStats(game) {
     location: game.location,
     target: game.target,
     // User WIS (computed or from storage)
-    wis: game.userWIS || wis,
-    dispersion: game.userDispersion || dispersion,
-    underprediction: game.userUnderprediction || underprediction,
-    overprediction: game.userOverprediction || overprediction,
+    wis: relativeWis,
+    rawWIS: game.userWIS ?? wis,
+    relativeWIS: relativeWis,
+    dispersion: game.userDispersion ?? dispersion,
+    underprediction: game.userUnderprediction ?? underprediction,
+    overprediction: game.userOverprediction ?? overprediction,
     coverage95: coverage.coverage95,
     coverage50: coverage.coverage50,
     validHorizons: coverage.validHorizons,
@@ -113,15 +118,21 @@ function computeGameStats(game) {
     ensembleRank: game.ensembleRank || null,
     baselineRank: game.baselineRank || null,
     // Ensemble scores
-    ensembleWIS: game.ensembleWIS || null,
-    ensembleDispersion: game.ensembleDispersion || null,
-    ensembleUnderprediction: game.ensembleUnderprediction || null,
-    ensembleOverprediction: game.ensembleOverprediction || null,
+    ensembleWIS:
+      game.ensembleRelativeWIS ??
+      calculateRelativeWIS(game.ensembleWIS ?? null, game.baselineWIS ?? null),
+    ensembleRawWIS: game.ensembleWIS ?? null,
+    ensembleDispersion: game.ensembleDispersion ?? null,
+    ensembleUnderprediction: game.ensembleUnderprediction ?? null,
+    ensembleOverprediction: game.ensembleOverprediction ?? null,
     // Baseline scores
-    baselineWIS: game.baselineWIS || null,
-    baselineDispersion: game.baselineDispersion || null,
-    baselineUnderprediction: game.baselineUnderprediction || null,
-    baselineOverprediction: game.baselineOverprediction || null,
+    baselineWIS:
+      game.baselineRelativeWIS ??
+      calculateRelativeWIS(game.baselineWIS ?? null, game.baselineWIS ?? null),
+    baselineRawWIS: game.baselineWIS ?? null,
+    baselineDispersion: game.baselineDispersion ?? null,
+    baselineUnderprediction: game.baselineUnderprediction ?? null,
+    baselineOverprediction: game.baselineOverprediction ?? null,
     // Raw data needed for per-pathogen coverage calculation
     userForecasts: game.userForecasts,
     groundTruth: game.groundTruth,
@@ -213,6 +224,7 @@ export function useRespilensStats(refreshTrigger) {
         averageWIS: null,
         bestWIS: null,
         worstWIS: null,
+        averageRawWIS: null,
         averageDispersion: null,
         averageUnderprediction: null,
         averageOverprediction: null,
@@ -236,6 +248,9 @@ export function useRespilensStats(refreshTrigger) {
     const totalWIS = validGames.reduce((sum, g) => sum + g.wis, 0);
     const averageWIS =
       validGames.length > 0 ? totalWIS / validGames.length : null;
+    const totalRawWIS = validGames.reduce((sum, g) => sum + (g.rawWIS || 0), 0);
+    const averageRawWIS =
+      validGames.length > 0 ? totalRawWIS / validGames.length : null;
     const bestWIS =
       validGames.length > 0 ? Math.min(...validGames.map((g) => g.wis)) : null;
     const worstWIS =
@@ -315,6 +330,7 @@ export function useRespilensStats(refreshTrigger) {
       averageWIS,
       bestWIS,
       worstWIS,
+      averageRawWIS,
       averageDispersion,
       averageUnderprediction,
       averageOverprediction,

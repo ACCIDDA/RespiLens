@@ -129,11 +129,13 @@ export function saveForecastleGame(gameData) {
       baselineRank: gameData.baselineRank,
       // User scores (rounded to 3 decimal places)
       userWIS: roundToDecimals(gameData.userWIS, 3),
+      userRelativeWIS: roundToDecimals(gameData.userRelativeWIS, 3),
       userDispersion: roundToDecimals(gameData.userDispersion, 3),
       userUnderprediction: roundToDecimals(gameData.userUnderprediction, 3),
       userOverprediction: roundToDecimals(gameData.userOverprediction, 3),
       // Ensemble scores (rounded to 3 decimal places)
       ensembleWIS: roundToDecimals(gameData.ensembleWIS, 3),
+      ensembleRelativeWIS: roundToDecimals(gameData.ensembleRelativeWIS, 3),
       ensembleDispersion: roundToDecimals(gameData.ensembleDispersion, 3),
       ensembleUnderprediction: roundToDecimals(
         gameData.ensembleUnderprediction,
@@ -145,6 +147,7 @@ export function saveForecastleGame(gameData) {
       ),
       // Baseline scores (rounded to 3 decimal places)
       baselineWIS: roundToDecimals(gameData.baselineWIS, 3),
+      baselineRelativeWIS: roundToDecimals(gameData.baselineRelativeWIS, 3),
       baselineDispersion: roundToDecimals(gameData.baselineDispersion, 3),
       baselineUnderprediction: roundToDecimals(
         gameData.baselineUnderprediction,
