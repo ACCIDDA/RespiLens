@@ -126,7 +126,7 @@ const useForecastDateDrag = ({
       }
     };
 
-    // Plotly counts clicks on mousedown (a double-click resets the zoom);
+    // Plotly counts clicks on mousedown (double-clicks trigger its own handling);
     // keep presses on a date line away from it
     const onMouseDown = (event) => {
       const at = locatePointer(getGraph(), event.clientX, event.clientY);

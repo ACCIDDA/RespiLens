@@ -97,10 +97,10 @@ const ForecastChartControls = ({
       {typeof setShowHistogram === "function" && (
         <Group align="center" gap="md">
           <Text size="xs" c="dimmed" style={{ minWidth: 90 }}>
-            Histogram
+            Categorical forecasts
           </Text>
           <Switch
-            aria-label="Histogram"
+            aria-label="Show categorical forecasts"
             checked={showHistogram}
             onChange={(event) => setShowHistogram(event.currentTarget.checked)}
             size="sm"
@@ -116,7 +116,7 @@ const ForecastChartControls = ({
             c={disableOtherGroundTruthSeasons ? "gray.6" : "dimmed"}
             style={{ minWidth: 90 }}
           >
-            Other GT
+            Historical seasons
           </Text>
           <Switch
             checked={showOtherGroundTruthSeasons}

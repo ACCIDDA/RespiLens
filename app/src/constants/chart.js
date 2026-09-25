@@ -163,14 +163,15 @@ export const getRangeSelector = (
 });
 
 // Plotly config for the full-size charts. The toolbar is hidden: download
-// lives in the chart header, zoom in the minimap and range buttons, and a
-// double-click resets the view.
+// lives in the chart header, zoom in the minimap and range buttons, and the
+// header's "Reset axes" button resets the view. Double-click reset is off: on
+// mobile it fired when tapping legend items (e.g. toggling ground truth).
 export const PLOT_CONFIG = {
   responsive: true,
   displayModeBar: false,
   displaylogo: false,
   scrollZoom: false,
-  doubleClick: "reset",
+  doubleClick: false,
 };
 
 // Vertical marker for a forecast date: a thin neutral rule, not a red dash
