@@ -22,10 +22,6 @@ const ViewSelector = ({ showActive = true, onNavigate }) => {
       value: DATASETS.flu.defaultView,
     },
     {
-      label: "Detailed view",
-      value: "fludetailed",
-    },
-    {
       label: "Peak forecasts",
       value: "flu_peak",
     },
@@ -63,7 +59,7 @@ const ViewSelector = ({ showActive = true, onNavigate }) => {
   ];
 
   const fluViewValues = new Set(fluViews.map((view) => view.value));
-  const isFluActive = fluViewValues.has(viewType);
+  const isFluActive = fluViewValues.has(viewType) || viewType === "fludetailed";
 
   useEffect(() => {
     if (isFluActive) {

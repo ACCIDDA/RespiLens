@@ -32,6 +32,8 @@ const ForecastChartControls = ({
   disableOtherGroundTruthSeasons = false,
   showIntervals = true,
   intervalOptions = INTERVAL_OPTIONS,
+  showHistogram = false,
+  setShowHistogram = null,
 }) => {
   const selectedIntervals = intervalOptions
     .filter((option) => intervalVisibility?.[option.value])
@@ -92,6 +94,21 @@ const ForecastChartControls = ({
           offLabel="Off"
         />
       </Group>
+      {typeof setShowHistogram === "function" && (
+        <Group align="center" gap="md">
+          <Text size="xs" c="dimmed" style={{ minWidth: 90 }}>
+            Histogram
+          </Text>
+          <Switch
+            aria-label="Histogram"
+            checked={showHistogram}
+            onChange={(event) => setShowHistogram(event.currentTarget.checked)}
+            size="sm"
+            onLabel="On"
+            offLabel="Off"
+          />
+        </Group>
+      )}
       {typeof setShowOtherGroundTruthSeasons === "function" && (
         <Group align="center" gap="md">
           <Text

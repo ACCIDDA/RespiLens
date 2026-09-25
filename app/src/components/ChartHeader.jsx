@@ -58,6 +58,8 @@ const ChartHeader = ({
     setShowLegend,
     showOtherGroundTruthSeasons,
     setShowOtherGroundTruthSeasons,
+    showHistogram,
+    setShowHistogram,
   } = useView();
 
   const about = useContext(ChartAboutContext);
@@ -148,6 +150,10 @@ const ChartHeader = ({
               setShowOtherGroundTruthSeasons={setShowOtherGroundTruthSeasons}
               disableOtherGroundTruthSeasons={isSurveillance}
               showIntervals={!isSurveillance}
+              showHistogram={showHistogram}
+              setShowHistogram={
+                viewType === "flu_forecasts" ? setShowHistogram : null
+              }
             />
           </Popover.Dropdown>
         </Popover>

@@ -401,6 +401,9 @@ export const ViewProvider = ({ children }) => {
   );
   const [showOtherGroundTruthSeasons, setShowOtherGroundTruthSeasons] =
     useState(() => urlManager.getAdvancedParams().showOtherGroundTruthSeasons);
+  const [showHistogram, setShowHistogram] = useState(
+    () => urlManager.getAdvancedParams().showHistogram,
+  );
 
   const {
     data,
@@ -875,6 +878,7 @@ export const ViewProvider = ({ children }) => {
       intervalVisibility: urlIntervals,
       showLegend: urlLegend,
       showOtherGroundTruthSeasons: urlShowOtherGroundTruthSeasons,
+      showHistogram: urlShowHistogram,
     } = urlManager.getAdvancedParams();
 
     if (isSurveillanceView && urlShowOtherGroundTruthSeasons) {
@@ -899,6 +903,9 @@ export const ViewProvider = ({ children }) => {
     if (urlShowOtherGroundTruthSeasons !== showOtherGroundTruthSeasons) {
       setShowOtherGroundTruthSeasons(urlShowOtherGroundTruthSeasons);
     }
+    if (urlShowHistogram !== showHistogram) {
+      setShowHistogram(urlShowHistogram);
+    }
   }, [
     searchParams,
     location.pathname,
@@ -909,6 +916,7 @@ export const ViewProvider = ({ children }) => {
     intervalVisibility,
     showLegend,
     showOtherGroundTruthSeasons,
+    showHistogram,
   ]);
 
   const setChartScaleWithUrl = useCallback(
@@ -951,6 +959,16 @@ export const ViewProvider = ({ children }) => {
         urlManager.updateAdvancedParams({
           showOtherGroundTruthSeasons: nextValue,
         });
+      }
+    },
+    [urlManager, isForecastPage],
+  );
+
+  const setShowHistogramWithUrl = useCallback(
+    (nextValue) => {
+      setShowHistogram(nextValue);
+      if (isForecastPage) {
+        urlManager.updateAdvancedParams({ showHistogram: nextValue });
       }
     },
     [urlManager, isForecastPage],
@@ -1018,6 +1036,8 @@ export const ViewProvider = ({ children }) => {
     setShowLegend: setShowLegendWithUrl,
     showOtherGroundTruthSeasons,
     setShowOtherGroundTruthSeasons: setShowOtherGroundTruthSeasonsWithUrl,
+    showHistogram,
+    setShowHistogram: setShowHistogramWithUrl,
   };
 
   return (

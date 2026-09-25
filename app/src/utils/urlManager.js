@@ -72,6 +72,7 @@ export class URLParameterManager {
     const intervalsParam = this.searchParams.get("intervals");
     const legendParam = this.searchParams.get("legend");
     const otherGtParam = this.searchParams.get("other_gt");
+    const histogramParam = this.searchParams.get("histogram");
 
     const chartScale = normalizeChartScale(scaleParam || DEFAULT_CHART_SCALE);
     let intervalVisibility = { ...DEFAULT_INTERVAL_VISIBILITY };
@@ -110,6 +111,7 @@ export class URLParameterManager {
       intervalVisibility,
       showLegend,
       showOtherGroundTruthSeasons,
+      showHistogram: histogramParam === "1" || histogramParam === "true",
     };
   }
 
@@ -142,6 +144,7 @@ export class URLParameterManager {
     intervalVisibility,
     showLegend,
     showOtherGroundTruthSeasons,
+    showHistogram,
   }) {
     const updatedParams = new URLSearchParams(this.searchParams);
 
@@ -179,6 +182,14 @@ export class URLParameterManager {
         updatedParams.set("other_gt", showOtherGroundTruthSeasons ? "1" : "0");
       } else {
         updatedParams.delete("other_gt");
+      }
+    }
+
+    if (typeof showHistogram === "boolean") {
+      if (showHistogram) {
+        updatedParams.set("histogram", "1");
+      } else {
+        updatedParams.delete("histogram");
       }
     }
 

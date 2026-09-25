@@ -31,7 +31,11 @@ const FluView = ({
     intervalVisibility,
     showLegend,
     showOtherGroundTruthSeasons,
+    showHistogram,
   } = useView();
+  const histogramVisible =
+    viewType === "fludetailed" ||
+    (viewType === "flu_forecasts" && showHistogram);
   const forecasts = data?.forecasts;
   const stableModelOrderRef = useRef([]);
   const stableModelOrder = useMemo(() => {
@@ -90,14 +94,14 @@ const FluView = ({
   ]);
 
   const extraTraces = useMemo(() => {
-    if (viewType !== "fludetailed") return [];
+    if (!histogramVisible) return [];
     return rateChangeData.map((trace) => ({
       ...trace,
       orientation: "h",
       xaxis: "x2",
       yaxis: "y2",
     }));
-  }, [rateChangeData, viewType]);
+  }, [rateChangeData, histogramVisible]);
 
   const activeModels = useMemo(() => {
     const activeModelSet = new Set();
@@ -127,7 +131,7 @@ const FluView = ({
         }
       }
 
-      if (viewType === "fludetailed") {
+      if (histogramVisible) {
         const rateChangeSet = forecastsForDate["wk flu hosp rate change"];
         if (rateChangeSet) {
           Object.keys(rateChangeSet).forEach((model) =>
@@ -138,7 +142,7 @@ const FluView = ({
     });
 
     return activeModelSet;
-  }, [forecasts, selectedDates, selectedTarget, viewType]);
+  }, [forecasts, selectedDates, selectedTarget, viewType, histogramVisible]);
 
   const forecastTarget =
     viewType === "flu" || viewType === "flu_forecasts"
@@ -154,7 +158,7 @@ const FluView = ({
     (baseLayout) => {
       const baseXAxis = {
         ...baseLayout.xaxis,
-        domain: viewType === "fludetailed" ? [0, 0.8] : baseLayout.xaxis.domain,
+        domain: histogramVisible ? [0, 0.8] : baseLayout.xaxis.domain,
       };
 
       const nextLayout = {
@@ -163,7 +167,7 @@ const FluView = ({
         xaxis: baseXAxis,
       };
 
-      if (viewType !== "fludetailed") {
+      if (!histogramVisible) {
         return nextLayout;
       }
 
@@ -207,7 +211,7 @@ const FluView = ({
         },
       };
     },
-    [viewType, lastSelectedDate, colorScheme],
+    [histogramVisible, lastSelectedDate, colorScheme],
   );
 
   if (viewType === "flu_peak") {
