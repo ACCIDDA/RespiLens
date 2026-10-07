@@ -511,11 +511,26 @@ body {
   border-bottom: 1px solid var(--notice-edge);
 }
 
-.respilens-notice[data-tone="alert"] {
+.respilens-notice[data-tone="alert"],
+.respilens-notice[data-tone="status"] {
   --notice-bg: var(--mantine-color-yellow-1);
   --notice-edge: var(--mantine-color-yellow-2);
   --notice-ink: var(--mantine-color-yellow-9);
   --notice-icon: var(--mantine-color-yellow-7);
+}
+
+.respilens-notice[data-tone="success"] {
+  --notice-bg: var(--mantine-color-green-1);
+  --notice-edge: var(--mantine-color-green-2);
+  --notice-ink: var(--mantine-color-green-9);
+  --notice-icon: var(--mantine-color-green-7);
+}
+
+.respilens-notice[data-tone="paused"] {
+  --notice-bg: var(--mantine-color-red-1);
+  --notice-edge: var(--mantine-color-red-2);
+  --notice-ink: var(--mantine-color-red-9);
+  --notice-icon: var(--mantine-color-red-7);
 }
 
 .respilens-notice-icon {

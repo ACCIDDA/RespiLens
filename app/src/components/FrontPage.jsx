@@ -76,10 +76,34 @@ const Section = ({ title, icon: Icon, children }) => (
   </Stack>
 );
 
+// Green banner for the start of the 2026-27 FluSight season (shown today and
+// tomorrow); also rendered on the FluSight views by DataVisualizationContainer
+export const FluSightStartAnnouncement = () => (
+  <Announcement
+    id="flusight-starts-2026"
+    startDate="2026-10-07T00:00:00"
+    endDate="2026-10-08T23:59:59"
+    announcementType="success"
+    text="FluSight starts today! Influenza forecasts for the 2026–27 season are back."
+  />
+);
+
+// Red banner on the MetroCast view while it is out of season
+export const MetroCastPausedAnnouncement = () => (
+  <Announcement
+    id="metrocast-paused-2026"
+    startDate="2026-06-01T00:00:00"
+    endDate="2026-11-03T23:59:59"
+    announcementType="paused"
+    text="MetroCast (local influenza forecasts) is currently off for the season and will resume on November 4, 2026."
+  />
+);
+
 // Site notices, rendered full width above the page title (outside the
 // content container) by DataVisualizationContainer
 export const FrontPageAnnouncements = () => (
   <>
+    <FluSightStartAnnouncement />
     <Announcement
       id="new-nssp-all-view"
       startDate="2026-05-20"
@@ -95,12 +119,12 @@ export const FrontPageAnnouncements = () => (
       text={<MyPlotsLink />}
     />
     <Announcement
-      id={"hub-seasonal-warning-2026"}
-      startDate={"2026-06-01"}
-      endDate={"2026-11-10"}
-      announcementType={"alert"}
+      id={"hub-seasonal-status-2026"}
+      startDate={"2026-10-07T00:00:00"}
+      endDate={"2026-11-03T23:59:59"}
+      announcementType={"status"}
       text={
-        "Flu and RSV forecasts are currently paused because they are out of season. FluSight will resume influenza forecasts on October 7, 2026, while MetroCast (the local influenza forecast) will resume on November 4, 2026. The RSV Forecast Hub will start on September 23, 2026. COVID-19 forecasts are issued year-round and continue."
+        "COVID-19 forecasts are ongoing year-round. FluSight and the RSV Forecast Hub have resumed operation for the 2026–27 season. MetroCast (local influenza forecasts) will start on November 4, 2026."
       }
     />
   </>

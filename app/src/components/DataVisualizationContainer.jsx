@@ -18,7 +18,11 @@ import LocationPicker from "./LocationPicker";
 import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
 import ViewSwitchboard from "./ViewSwitchboard";
 import ErrorBoundary from "./ErrorBoundary";
-import FrontPage, { FrontPageAnnouncements } from "./FrontPage";
+import FrontPage, {
+  FrontPageAnnouncements,
+  FluSightStartAnnouncement,
+  MetroCastPausedAnnouncement,
+} from "./FrontPage";
 import { IconBrandGithub } from "@tabler/icons-react";
 import { useClipboard } from "@mantine/hooks";
 import Seo from "./Seo";
@@ -622,6 +626,10 @@ const DataVisualizationContainer = ({ disableSeo = false }) => {
           title={forecastTitle}
           description={`View ${currentDataset?.fullName || "respiratory disease forecasts"} in RespiLens with model projections, observed trends, and state-level respiratory disease activity.`}
         />
+      )}
+      {currentDataset?.shortName === "flu" && <FluSightStartAnnouncement />}
+      {currentDataset?.shortName === "metrocast" && (
+        <MetroCastPausedAnnouncement />
       )}
       <ChartAboutContext.Provider value={chartAbout}>
         <ChartResetContext.Provider value={resetCount}>
