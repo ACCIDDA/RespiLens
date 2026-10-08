@@ -211,8 +211,6 @@ const shiftDateStringByDays = (dateString, days) => {
   return shiftedDate.toISOString().slice(0, 10);
 };
 
-const getTodayDateString = () => new Date().toISOString().slice(0, 10);
-
 const buildRequiredColumnError = (fileLabel, missingColumns) =>
   `${fileLabel} is missing required columns: ${missingColumns.join(", ")}.`;
 
@@ -695,26 +693,6 @@ const buildHubPathogenWarning = (forecastRows, hubConfig) => {
   }
 
   return `Your uploaded target names do not appear to mention "${expectedKeyword}". Please double-check your hub selection.`;
-};
-
-const buildComparisonEligibility = (forecastRows) => {
-  const today = getTodayDateString();
-  const hasPresentOrFutureTargets = forecastRows.some(
-    (row) => String(row.target_end_date) >= today,
-  );
-
-  if (hasPresentOrFutureTargets) {
-    return {
-      isEligible: false,
-      reason:
-        "You can only compare with submitting models when your model data is for the past.",
-    };
-  }
-
-  return {
-    isEligible: true,
-    reason: null,
-  };
 };
 
 const buildGroundTruthOutput = (
@@ -1544,7 +1522,7 @@ const MyRespiVisualizationPanel = ({
   const [showLegend, setShowLegend] = useState(true);
   const [xAxisRange, setXAxisRange] = useState(null);
   const [yAxisRange, setYAxisRange] = useState(null);
-  // On by default whenever the upload is old enough to compare
+  // On by default for supported hubs, regardless of uploaded forecast dates.
   const [compareWithSubmittingModels, setCompareWithSubmittingModels] =
     useState(Boolean(comparisonEligibility?.isEligible));
   const [comparisonDataState, setComparisonDataState] = useState({
@@ -1757,8 +1735,9 @@ const MyRespiVisualizationPanel = ({
     [locationData, selectedTarget],
   );
   const submittedModels = useMemo(
-    () => getModelsForTarget(filteredComparisonLocationData, selectedTarget),
-    [filteredComparisonLocationData, selectedTarget],
+    // Keep unavailable models visible; activeSubmittedModels disables them.
+    () => getModelsForTarget(comparisonLocationData, selectedTarget),
+    [comparisonLocationData, selectedTarget],
   );
   const selectedSubmittedIntervals = useMemo(
     () =>
@@ -3522,9 +3501,10 @@ const HubUploadScreen = () => {
           status: "success",
           outputs,
           error: null,
-          comparisonEligibility: buildComparisonEligibility(
-            validation.usableRows,
-          ),
+          comparisonEligibility: {
+            isEligible: true,
+            reason: null,
+          },
         });
         setIsUploadProcessing(false);
       } catch (error) {
