@@ -223,6 +223,25 @@ export class URLParameterManager {
     }
   }
 
+  // The span and its ensemble together: two separate updates would each start
+  // from the same params, and the second would undo the first
+  updateMetrocastSpan(dataset, metrocastSpan, models) {
+    const updatedParams = new URLSearchParams(this.searchParams);
+    if (metrocastSpan !== DEFAULT_METROCAST_SPAN) {
+      updatedParams.set("span", metrocastSpan);
+    } else {
+      updatedParams.delete("span");
+    }
+    if (models.length > 0) {
+      updatedParams.set(`${dataset.prefix}_models`, models.join(","));
+    } else {
+      updatedParams.delete(`${dataset.prefix}_models`);
+    }
+    if (updatedParams.toString() !== this.searchParams.toString()) {
+      this.setSearchParams(updatedParams, { replace: true });
+    }
+  }
+
   updateDatasetParams(dataset, newParams) {
     if (!dataset) {
       return;

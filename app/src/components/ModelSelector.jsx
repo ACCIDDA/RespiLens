@@ -24,8 +24,8 @@ const ModelSelector = ({
   selectedModels = [],
   setSelectedModels,
   activeModels = null,
-  // Models marked with an "LT" superscript (MetroCast long-term forecasts)
-  longTermModels = null,
+  // Map of model to a { label, title } superscript (MetroCast's ST / LT)
+  modelTags = null,
   allowMultiple = true,
   disabled = false,
   modelColorFn = null,
@@ -258,7 +258,7 @@ const ModelSelector = ({
                   },
                 }}
                 label={
-                  longTermModels?.has(model) ? (
+                  modelTags?.has(model) ? (
                     <>
                       {model}
                       <Text
@@ -268,9 +268,9 @@ const ModelSelector = ({
                         fz={9}
                         fw={600}
                         ml={2}
-                        title="Long-term forecast through the end of the season"
+                        title={modelTags.get(model).title}
                       >
-                        LT
+                        {modelTags.get(model).label}
                       </Text>
                     </>
                   ) : (

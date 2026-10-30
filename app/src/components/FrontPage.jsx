@@ -133,15 +133,6 @@ export const FrontPageAnnouncements = () => (
       announcementType={"update"}
       text={<MyPlotsLink />}
     />
-    <Announcement
-      id={"hub-seasonal-status-2026"}
-      startDate={"2026-10-07T00:00:00"}
-      endDate={"2026-11-03T23:59:59"}
-      announcementType={"status"}
-      text={
-        "COVID-19 forecasts are ongoing year-round. FluSight and the RSV Forecast Hub have resumed operation for the 2026–27 season. MetroCast (local influenza forecasts) started on Wednesday, October 21, 2026."
-      }
-    />
   </>
 );
 

@@ -17,6 +17,7 @@ import {
 } from "@mantine/core";
 import Plot from "react-plotly.js";
 import ModelSelector from "../ModelSelector";
+import { DATASETS } from "../../config";
 import { useView } from "../../hooks/useView";
 import { useChartReset } from "../../hooks/useChartReset";
 import {
@@ -67,6 +68,18 @@ const METRO_STATE_MAP = {
 
 // The "4 weeks" span shows horizons 0-3; long-term models go further
 const SHORT_TERM_MAX_HORIZON = 3;
+
+const MODEL_TAGS = {
+  short: { label: "ST", title: "Short-term forecast (4 weeks)" },
+  long: {
+    label: "LT",
+    title: "Long-term forecast through the end of the season",
+  },
+  both: {
+    label: "ST, LT",
+    title: "Short-term and long-term forecast through the end of the season",
+  },
+};
 
 // Same height as the other forecast charts
 const MAIN_PLOT_HEIGHT = "min(880px, 60vh)";
@@ -446,23 +459,36 @@ const MetroCastView = ({
     return activeModelSet;
   }, [forecasts, selectedDates, selectedTarget]);
 
-  // Models forecasting past the 4-week horizons on the selected dates
-  const longTermModels = useMemo(() => {
-    const longTermSet = new Set();
-    if (!forecasts || !selectedTarget) return longTermSet;
+  // Which spans each model covers on the selected dates. The long-term
+  // ensemble also has weeks 0-3, but the short-term ensemble is the one for them.
+  const modelTags = useMemo(() => {
+    const spans = new Map();
+    if (!forecasts || !selectedTarget) return spans;
     selectedDates.forEach((date) => {
       Object.entries(forecasts[date]?.[selectedTarget] || {}).forEach(
         ([model, forecast]) => {
-          if (
-            Object.keys(forecast.predictions || {}).some(
-              (horizon) => Number(horizon) > SHORT_TERM_MAX_HORIZON,
-            )
-          )
-            longTermSet.add(model);
+          const horizons = Object.keys(forecast.predictions || {}).map(Number);
+          const seen = spans.get(model) || {};
+          spans.set(model, {
+            short:
+              seen.short || horizons.some((h) => h <= SHORT_TERM_MAX_HORIZON),
+            long: seen.long || horizons.some((h) => h > SHORT_TERM_MAX_HORIZON),
+          });
         },
       );
     });
-    return longTermSet;
+    return new Map(
+      [...spans].map(([model, { short, long }]) => {
+        const longOnly =
+          model === DATASETS.metrocast.longTermDefaultModel || !short;
+        const tag = longOnly
+          ? MODEL_TAGS.long
+          : long
+            ? MODEL_TAGS.both
+            : MODEL_TAGS.short;
+        return [model, tag];
+      }),
+    );
   }, [forecasts, selectedDates, selectedTarget]);
 
   const { data: childData, loading: loadingChildren } = useAsyncData(
@@ -526,7 +552,7 @@ const MetroCastView = ({
           selectedModels={selectedModels}
           setSelectedModels={setSelectedModels}
           activeModels={activeModels}
-          longTermModels={longTermModels}
+          modelTags={modelTags}
           selectedDates={selectedDates}
           keyboardShortcut
         />

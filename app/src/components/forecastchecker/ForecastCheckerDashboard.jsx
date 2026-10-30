@@ -514,7 +514,6 @@ const validateHubverseCsv = (records, hubConfig) => {
   const summary = {
     totalRows: records.length,
     rowsMissingHorizon: 0,
-    rowsFilteredAsNowcasts: 0,
     rowsFilteredAsSamples: 0,
     rowsFilteredByOutputTypeId: 0,
     rowsFilteredAsPeakTargets: 0,
@@ -582,11 +581,6 @@ const validateHubverseCsv = (records, hubConfig) => {
       sampleProblems.push(
         `Row ${index + 2} has a horizon of "${rawHorizon}", which is not an integer.`,
       );
-      return [];
-    }
-
-    if (numericHorizon < 0) {
-      summary.rowsFilteredAsNowcasts += 1;
       return [];
     }
 
@@ -1059,11 +1053,6 @@ const ValidationSummary = ({ summary }) => (
     {summary.rowsMissingHorizon > 0 && (
       <Badge color="yellow" variant="light">
         {summary.rowsMissingHorizon} missing horizon
-      </Badge>
-    )}
-    {summary.rowsFilteredAsNowcasts > 0 && (
-      <Badge color="yellow" variant="light">
-        {summary.rowsFilteredAsNowcasts} nowcasts filtered
       </Badge>
     )}
     {summary.rowsFilteredAsSamples > 0 && (

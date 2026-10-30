@@ -67,6 +67,8 @@ export const DATASETS = {
     ],
     defaultView: "metrocast_forecasts",
     defaultModel: "epiENGAGE-ensemble_short",
+    // Stands in for the default model in the "Full season" span
+    longTermDefaultModel: "epiENGAGE-ensemble_long",
     defaultLocation: "colorado",
     hasDateSelector: true,
     hasModelSelector: true,

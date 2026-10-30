@@ -202,10 +202,6 @@ const Documentation = () => {
                 optional <code>model_id</code> columns.
               </List.Item>
               <List.Item>
-                Rows where the <code>horizon</code> column is negative
-                (nowcasts).
-              </List.Item>
-              <List.Item>
                 Rows where the <code>output_type</code> column value is NOT{" "}
                 <code>quantile</code>.
               </List.Item>

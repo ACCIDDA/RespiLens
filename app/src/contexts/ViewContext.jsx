@@ -14,6 +14,10 @@ import {
 
 const DATE_URL_DELAY_MS = 250;
 
+const getDefaultModel = (dataset, metrocastSpan) =>
+  (metrocastSpan === "season" && dataset?.longTermDefaultModel) ||
+  dataset?.defaultModel;
+
 const METRO_STATE_MAP = {
   California: "CA",
   Colorado: "CO",
@@ -560,6 +564,7 @@ export const ViewProvider = ({ children }) => {
     }
 
     const params = urlManager.getDatasetParams(currentDataset);
+    const defaultModel = getDefaultModel(currentDataset, metrocastSpan);
     let needsModelUrlUpdate = false;
     let dateUrlUpdate = null;
 
@@ -568,11 +573,8 @@ export const ViewProvider = ({ children }) => {
       params.models?.filter((m) => modelsForView.includes(m)) || [];
     if (validUrlModels.length > 0) {
       modelsToSet = validUrlModels;
-    } else if (
-      currentDataset.defaultModel &&
-      modelsForView.includes(currentDataset.defaultModel)
-    ) {
-      modelsToSet = [currentDataset.defaultModel];
+    } else if (defaultModel && modelsForView.includes(defaultModel)) {
+      modelsToSet = [defaultModel];
       needsModelUrlUpdate = true;
     } else if (modelsForView.length > 0) {
       modelsToSet = [modelsForView[0]];
@@ -581,10 +583,7 @@ export const ViewProvider = ({ children }) => {
     // Drop a URL that only names the default model. Not one where other
     // requested models just have no forecast here: they come back at the
     // next location that has them.
-    if (
-      params.models?.length === 1 &&
-      params.models[0] === currentDataset.defaultModel
-    ) {
+    if (params.models?.length === 1 && params.models[0] === defaultModel) {
       needsModelUrlUpdate = true;
     }
 
@@ -664,6 +663,7 @@ export const ViewProvider = ({ children }) => {
     modelsForView,
     availableDatesToExpose,
     availableTargetsToExpose,
+    metrocastSpan,
   ]);
 
   useEffect(() => {
@@ -989,11 +989,31 @@ export const ViewProvider = ({ children }) => {
   const setMetrocastSpanWithUrl = useCallback(
     (nextValue) => {
       setMetrocastSpan(nextValue);
-      if (isForecastPage) {
-        urlManager.updateAdvancedParams({ metrocastSpan: nextValue });
-      }
+      if (!isForecastPage) return;
+      const dataset = urlManager.getDatasetFromView(viewType);
+      const fromModel = getDefaultModel(dataset, metrocastSpan);
+      const toModel = getDefaultModel(dataset, nextValue);
+      // A plotted ensemble follows the span, unless both are already plotted
+      const nextModels =
+        modelsForView.includes(toModel) && !selectedModels.includes(toModel)
+          ? selectedModels.map((m) => (m === fromModel ? toModel : m))
+          : selectedModels;
+      setSelectedModels(nextModels);
+      const isDefault = nextModels.length === 1 && nextModels[0] === toModel;
+      urlManager.updateMetrocastSpan(
+        dataset,
+        nextValue,
+        isDefault ? [] : nextModels,
+      );
     },
-    [urlManager, isForecastPage],
+    [
+      urlManager,
+      isForecastPage,
+      viewType,
+      metrocastSpan,
+      modelsForView,
+      selectedModels,
+    ],
   );
 
   const contextValue = {
@@ -1014,9 +1034,11 @@ export const ViewProvider = ({ children }) => {
       const currentDataset = urlManager.getDatasetFromView(viewType);
       setSelectedModels((prevModels) => {
         const nextModels = resolveModels(prevModels);
-        const defaultModel = currentDataset?.defaultModel
-          ? [currentDataset.defaultModel]
-          : [];
+        const defaultModelForSpan = getDefaultModel(
+          currentDataset,
+          metrocastSpan,
+        );
+        const defaultModel = defaultModelForSpan ? [defaultModelForSpan] : [];
         const isDefault =
           JSON.stringify(nextModels.slice().sort()) ===
           JSON.stringify(defaultModel.slice().sort());
