@@ -45,6 +45,7 @@
   "DMAPRIME-QR": { "color": "#5b2a86", "marker": "square" },
   "DMAPRIME-QR_E": { "color": "#17becf" },
   "DMAPRIME-RF": { "color": "#9467bd", "marker": "square" },
+  "Emory-EpiRSI": { "color": "#d4a017" },
   "Epistorm-Ensemble_Flu": { "color": "#37717f", "marker": "square" },
   "FluCast-SeasonalRidge": { "color": "#8c564b", "marker": "square" },
   "FluSight-HJudge_ensemble": { "color": "#3f51b5", "dashed": true },
