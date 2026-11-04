@@ -105,6 +105,7 @@
   "NAU-vulPES": { "color": "#b35900", "dashed": true },
   "NAU_PyBNF-GroundHogCGR": { "color": "#5e3a1f", "marker": "square" },
   "NAU_PyBNF-OracleSIHRS": { "color": "#767600", "marker": "square" },
+  "NDP-v1": { "color": "#f26d5b" },
   "NEU_ISI-AdaptiveEnsemble": { "color": "#8c564b" },
   "NEU_ISI-FluBcast": { "color": "#b48ede" },
   "NIH-Flu_ARIMA": { "color": "#b35900" },
