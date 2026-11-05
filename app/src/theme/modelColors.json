@@ -183,5 +183,6 @@
   "epiENGAGE-renewal_rt": { "color": "#b35900", "dashed": true },
   "epiforecasts-dyngam": { "color": "#ff7f0e" },
   "fjordhest-ensemble": { "color": "#bcbd22" },
-  "fonz-wardweather": { "color": "#0b6e4f" }
+  "fonz-wardweather": { "color": "#0b6e4f" },
+  "influcast-peak_gbm": { "color": "#b35900", "marker": "square", "dashed": true }
 }
