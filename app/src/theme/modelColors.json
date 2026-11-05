@@ -3,6 +3,8 @@
   "ACCIDDA-InfluPaint": { "color": "#8e1b3a" },
   "ACCIDDA-insightcast": { "color": "#b35900" },
   "BFrimpong-baseline": { "color": "#d4a017", "dashed": true },
+  "BFrimpong-sirs": { "color": "#17becf", "marker": "square", "dashed": true },
+  "BFrimpong-sirs_hol": { "color": "#3f51b5", "marker": "diamond" },
   "BFrimpong-trend": { "color": "#a68a64", "dashed": true },
   "BYFlu-STMGGP": { "color": "#8c564b" },
   "CADPH-CovidCAT_Ensemble": { "color": "#5e3a1f" },
