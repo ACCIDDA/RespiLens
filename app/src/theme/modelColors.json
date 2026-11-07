@@ -9,6 +9,8 @@
   "BYFlu-STMGGP": { "color": "#8c564b" },
   "CADPH-CovidCAT_Ensemble": { "color": "#5e3a1f" },
   "CADPH-FluCAT_Ensemble": { "color": "#0b6e4f" },
+  "CADPH-FluCAT_HJudge_BU": { "color": "#0b6e4f", "marker": "square", "dashed": true },
+  "CADPH-FluCAT_HJudge_TD": { "color": "#8e1b3a", "marker": "square", "dashed": true },
   "CCC_and_Tom-ARX23": { "color": "#ff7f0e", "marker": "square" },
   "CEPH-Rtrend_covid": { "color": "#9467bd" },
   "CEPH-Rtrend_fluH": { "color": "#8e1b3a" },
