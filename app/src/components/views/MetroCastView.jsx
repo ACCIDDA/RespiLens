@@ -22,6 +22,7 @@ import { useView } from "../../hooks/useView";
 import { useChartReset } from "../../hooks/useChartReset";
 import {
   CHART_CONSTANTS,
+  FORECAST_LINE_OFFSET_DAYS,
   GROUND_TRUTH_LINE_WIDTH,
   GROUND_TRUTH_MARKER_SIZE,
   PLOT_CONFIG,
@@ -281,6 +282,7 @@ const MetroPlotCard = ({
   // On the main chart: click to add a forecast date, drag a line to move it
   const { containerRef, displayDates, draggingDate } = useForecastDateDrag({
     selectedDates,
+    lineOffsetDays: FORECAST_LINE_OFFSET_DAYS,
     enabled: !isSmall,
     onBeforeCommit: (gd) => {
       const range = gd?._fullLayout?.xaxis?.range;
@@ -381,7 +383,7 @@ const MetroPlotCard = ({
           hoverlabel: {
             namelength: -1,
           },
-          ...getForecastDateMarks(colorScheme, displayDates, draggingDate, 0),
+          ...getForecastDateMarks(colorScheme, displayDates, draggingDate),
         }}
         config={{ ...PLOT_CONFIG, staticPlot: isSmall }}
         onRelayout={(e) => {
