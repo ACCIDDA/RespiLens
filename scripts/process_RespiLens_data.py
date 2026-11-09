@@ -71,7 +71,7 @@ def main():
         flu_hub_conn = connect_hub(args.flusight_hub_path)
         logger.info("Success ✅")
         logger.info("Collecting data from FluSight repo...")
-        flu_hubverse_df = clean_nan_values(hubverse_df_preprocessor(df=flu_hub_conn.get_dataset().to_table().to_pandas(), filter_nowcasts=True))
+        flu_hubverse_df = clean_nan_values(hubverse_df_preprocessor(df=flu_hub_conn.get_dataset().to_table().to_pandas(), filter_nowcasts=False))
         flu_target_data = clean_nan_values(connect_target_data(hub_path=args.flusight_hub_path, target_type=TargetType.TIME_SERIES).to_table().to_pandas()) 
         logger.info("Success ✅")
         # Initialize converter object
@@ -101,7 +101,7 @@ def main():
         rsv_hub_conn = connect_hub(args.rsv_hub_path)
         logger.info("Success ✅")
         logger.info("Collecting data from RSV repo...")
-        rsv_hubverse_df = clean_nan_values(hubverse_df_preprocessor(df=rsv_hub_conn.get_dataset().to_table().to_pandas(), filter_nowcasts=True))
+        rsv_hubverse_df = clean_nan_values(hubverse_df_preprocessor(df=rsv_hub_conn.get_dataset().to_table().to_pandas(), filter_nowcasts=False))
         rsv_target_data = clean_nan_values(connect_target_data(hub_path=args.rsv_hub_path, target_type=TargetType.TIME_SERIES).to_table().to_pandas()) 
         logger.info("Success ✅")
         # Initialize converter object
@@ -130,7 +130,7 @@ def main():
         covid_hub_conn = connect_hub(args.covid_hub_path)
         logger.info("Success ✅")
         logger.info("Collecting data from covid19 repo...")
-        covid_hubverse_df = clean_nan_values(hubverse_df_preprocessor(df=covid_hub_conn.get_dataset().to_table().to_pandas(), filter_nowcasts=True))
+        covid_hubverse_df = clean_nan_values(hubverse_df_preprocessor(df=covid_hub_conn.get_dataset().to_table().to_pandas(), filter_nowcasts=False))
         covid_target_data = clean_nan_values(connect_target_data(hub_path=args.covid_hub_path, target_type=TargetType.TIME_SERIES).to_table().to_pandas())
         logger.info("Success ✅")
         # Initialize converter object
@@ -161,7 +161,7 @@ def main():
         logger.info("Collecting data from flu metrocast repo...")
         # 2026-27 submissions are sample trajectories without a horizon: summarize them as quantiles first
         flu_metrocast_raw_df = samples_to_quantiles(flu_metrocast_hub_conn.get_dataset().to_table().to_pandas())
-        flu_metrocast_hubverse_df = clean_nan_values(hubverse_df_preprocessor(df=flu_metrocast_raw_df, filter_nowcasts=True))
+        flu_metrocast_hubverse_df = clean_nan_values(hubverse_df_preprocessor(df=flu_metrocast_raw_df, filter_nowcasts=False))
         flu_metrocast_locations_data = clean_nan_values(pd.read_csv(Path(args.flu_metrocast_hub_path) / 'auxiliary-data/locations.csv')) # DEP: metrocast still pulls hub locations.csv
         flu_metrocast_target_data = clean_nan_values(connect_target_data(hub_path=args.flu_metrocast_hub_path, target_type=TargetType.TIME_SERIES).to_table().to_pandas())
         logger.info("Success ✅")
