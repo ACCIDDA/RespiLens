@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { getVisiblePredictions } from "../utils/forecastPredictions";
 import { getModelStyle } from "../config/datasets";
 import { calculateRelativeWIS, calculateWIS } from "../utils/forecastleScoring";
 import { buildHistoricalGroundTruthTraces } from "../utils/forecastSeasons";
@@ -138,6 +139,7 @@ const useQuantileForecastTraces = ({
   groundTruthColor = "black",
   showLegendForFirstDate = true,
   fillMissingQuantiles = false,
+  showNowcasts = false,
   showMedian = true,
   show50 = true,
   show95 = true,
@@ -250,8 +252,10 @@ const useQuantileForecastTraces = ({
           ]),
         );
 
-        const sortedPredictions = Object.values(
-          forecast.predictions || {},
+        const sortedPredictions = getVisiblePredictions(
+          forecast.predictions,
+          date,
+          showNowcasts,
         ).sort((a, b) => new Date(a.date) - new Date(b.date));
 
         sortedPredictions.forEach((pred) => {
@@ -511,6 +515,7 @@ const useQuantileForecastTraces = ({
     groundTruthColor,
     showLegendForFirstDate,
     fillMissingQuantiles,
+    showNowcasts,
     showMedian,
     show50,
     show95,

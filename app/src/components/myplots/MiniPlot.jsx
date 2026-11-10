@@ -65,6 +65,7 @@ const MiniPlot = ({ plot, onMetadataLoad, plotHeight = 210 }) => {
     show50: plot.settings.intervals?.includes("ci50") ?? true,
     show95: plot.settings.intervals?.includes("ci95") ?? true,
     showLegendForFirstDate: false,
+    showNowcasts: plot.settings.showNowcasts ?? false,
     modelLineWidth: 1.5,
     modelMarkerSize: 4,
     // Observed data heavier than model lines, as on the dashboard

@@ -22,6 +22,7 @@ import { useView } from "../../hooks/useView";
 import { useChartReset } from "../../hooks/useChartReset";
 import {
   CHART_CONSTANTS,
+  FORECAST_LINE_OFFSET_DAYS,
   GROUND_TRUTH_LINE_WIDTH,
   GROUND_TRUTH_MARKER_SIZE,
   PLOT_CONFIG,
@@ -140,6 +141,7 @@ const MetroPlotCard = ({
   chartScale,
   intervalVisibility,
   showLegend = true,
+  showNowcasts = false,
   showOtherGroundTruthSeasons = false,
   span = "4wk",
 }) => {
@@ -265,6 +267,7 @@ const MetroPlotCard = ({
     groundTruthColor: getChartInk(colorScheme).text,
     showLegendForFirstDate: showLegend && !isSmall,
     fillMissingQuantiles: true,
+    showNowcasts,
     showMedian,
     show50,
     show95,
@@ -281,6 +284,7 @@ const MetroPlotCard = ({
   // On the main chart: click to add a forecast date, drag a line to move it
   const { containerRef, displayDates, draggingDate } = useForecastDateDrag({
     selectedDates,
+    lineOffsetDays: FORECAST_LINE_OFFSET_DAYS,
     enabled: !isSmall,
     onBeforeCommit: (gd) => {
       const range = gd?._fullLayout?.xaxis?.range;
@@ -381,7 +385,7 @@ const MetroPlotCard = ({
           hoverlabel: {
             namelength: -1,
           },
-          ...getForecastDateMarks(colorScheme, displayDates, draggingDate, 0),
+          ...getForecastDateMarks(colorScheme, displayDates, draggingDate),
         }}
         config={{ ...PLOT_CONFIG, staticPlot: isSmall }}
         onRelayout={(e) => {
@@ -426,6 +430,7 @@ const MetroCastView = ({
     chartScale,
     intervalVisibility,
     showLegend,
+    showNowcasts,
     showOtherGroundTruthSeasons,
     metrocastSpan,
   } = useView();
@@ -542,6 +547,7 @@ const MetroCastView = ({
         chartScale={chartScale}
         intervalVisibility={intervalVisibility}
         showLegend={showLegend}
+        showNowcasts={showNowcasts}
         showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
         span={metrocastSpan}
       />
@@ -587,6 +593,7 @@ const MetroCastView = ({
             chartScale={chartScale}
             intervalVisibility={intervalVisibility}
             showLegend={showLegend}
+            showNowcasts={showNowcasts}
             showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
             span={metrocastSpan}
           />

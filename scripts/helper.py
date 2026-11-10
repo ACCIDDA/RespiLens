@@ -26,13 +26,13 @@ def hubverse_df_preprocessor(df: pd.DataFrame, filter_quantiles: bool = True, fi
     Args:
         df: Hubverse data as pd.DataFrame
         filter_quantiles: If True, filter to specific quantile/pmf values only
-        filter_nowcasts: If True, filter out horizon -1 (nowcasts)
+        filter_nowcasts: If True, filter out all negative horizons (including nowcasts)
 
     Returns:
         A df with...
             - horizons as ints,
             - horizon NaNs dropped,
-            - horizon -1 (nowcasts) optionally filtered out,
+            - negative horizons (including nowcasts) optionally filtered out,
             - only some `output_type_id` values kept (if filter_quantiles=True),
             - all `output_type` == sample removed.
     """
@@ -47,7 +47,7 @@ def hubverse_df_preprocessor(df: pd.DataFrame, filter_quantiles: bool = True, fi
     df = df.dropna(subset=['horizon'])
     # Ensure horizons are ints (not floats)
     df['horizon'] = df['horizon'].astype(int)
-    # Optionally filter out horizon -1 (nowcasts)
+    # Optionally filter out all negative horizons (including nowcasts)
     if filter_nowcasts:
         df = df[df['horizon'] >= 0]
     # Get rid of all output_type == 'sample'
