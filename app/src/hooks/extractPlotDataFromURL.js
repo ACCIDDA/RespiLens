@@ -189,7 +189,10 @@ export const extractPlotData = (viewType, href, data) => {
       location = urlState.location || "colorado";
       fileName = `${location}_${dataSuffix}.json`;
       fullDataPath = `flumetrocast/${fileName}`;
-      target = "Flu ED visits pct";
+      target =
+        params.get("metrocast_target") ||
+        Object.keys(data?.ground_truth || {}).find((key) => key !== "dates") ||
+        "Flu ED visits pct";
       const metrocastModelsString = params.get("metrocast_models");
       models = metrocastModelsString
         ? metrocastModelsString.split(",")

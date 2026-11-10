@@ -59,6 +59,7 @@ const parseFrontPageLocation = (pathname = "") => {
 const RESERVED_VARIANTS = new Set(["detailed", "peak", "metrocast"]);
 
 const METROCAST_STATE_URL_TO_LOCATION = {
+  CA: "california",
   CO: "colorado",
   GA: "georgia",
   IN: "indiana",
@@ -81,6 +82,12 @@ const METROCAST_LOCATION_TO_STATE_URL = Object.fromEntries(
 );
 
 const METROCAST_SUBLOCATION_TO_STATE_URL = {
+  "bay-area": "CA",
+  "central-california": "CA",
+  "greater-sierra-sacramento": "CA",
+  "los-angeles": "CA",
+  "rural-north": "CA",
+  "southern-california": "CA",
   denver: "CO",
   mesa: "CO",
   "colorado-springs": "CO",
