@@ -57,6 +57,8 @@ const ChartHeader = ({
     setIntervalVisibility,
     showLegend,
     setShowLegend,
+    showNowcasts,
+    setShowNowcasts,
     showOtherGroundTruthSeasons,
     setShowOtherGroundTruthSeasons,
     showHistogram,
@@ -167,6 +169,12 @@ const ChartHeader = ({
               setIntervalVisibility={setIntervalVisibility}
               showLegend={showLegend}
               setShowLegend={setShowLegend}
+              showNowcasts={showNowcasts}
+              setShowNowcasts={
+                !isSurveillance && viewType !== "flu_peak"
+                  ? setShowNowcasts
+                  : null
+              }
               showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
               setShowOtherGroundTruthSeasons={setShowOtherGroundTruthSeasons}
               disableOtherGroundTruthSeasons={isSurveillance}

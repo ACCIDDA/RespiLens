@@ -122,6 +122,7 @@ export class URLParameterManager {
       chartScale,
       intervalVisibility,
       showLegend,
+      showNowcasts: ["1", "true"].includes(this.searchParams.get("nowcasts")),
       showOtherGroundTruthSeasons,
       showHistogram: histogramParam === "1" || histogramParam === "true",
       metrocastSpan: spanParam === "season" ? "season" : DEFAULT_METROCAST_SPAN,
@@ -156,6 +157,7 @@ export class URLParameterManager {
     chartScale,
     intervalVisibility,
     showLegend,
+    showNowcasts,
     showOtherGroundTruthSeasons,
     showHistogram,
     metrocastSpan,
@@ -199,6 +201,14 @@ export class URLParameterManager {
         updatedParams.set("other_gt", showOtherGroundTruthSeasons ? "1" : "0");
       } else {
         updatedParams.delete("other_gt");
+      }
+    }
+
+    if (typeof showNowcasts === "boolean") {
+      if (showNowcasts) {
+        updatedParams.set("nowcasts", "1");
+      } else {
+        updatedParams.delete("nowcasts");
       }
     }
 

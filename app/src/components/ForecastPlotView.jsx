@@ -64,6 +64,7 @@ const ForecastPlotView = ({
     chartScale,
     intervalVisibility,
     showLegend,
+    showNowcasts,
     showOtherGroundTruthSeasons,
     viewType,
   } = useView();
@@ -153,6 +154,7 @@ const ForecastPlotView = ({
     groundTruthColor: getChartInk(colorScheme).text,
     showLegendForFirstDate: showLegend,
     fillMissingQuantiles: false,
+    showNowcasts,
     showMedian,
     show50,
     show95,

@@ -304,6 +304,7 @@ export const extractPlotData = (viewType, href, data) => {
     locationDisplayName:
       locationDisplayName || resolvePlotLocationDisplayName(location, data),
     settings: {
+      showNowcasts: ["1", "true"].includes(params.get("nowcasts")),
       location,
       target,
       columns,

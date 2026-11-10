@@ -1509,6 +1509,7 @@ const MyRespiVisualizationPanel = ({
       ci95: true,
     });
   const [showLegend, setShowLegend] = useState(true);
+  const [showNowcasts, setShowNowcasts] = useState(false);
   const [xAxisRange, setXAxisRange] = useState(null);
   const [yAxisRange, setYAxisRange] = useState(null);
   // On by default for supported hubs, regardless of uploaded forecast dates.
@@ -1862,6 +1863,7 @@ const MyRespiVisualizationPanel = ({
     selectedModels,
     target: selectedTarget,
     showLegendForFirstDate: showLegend,
+    showNowcasts,
     groundTruthLineWidth: GROUND_TRUTH_LINE_WIDTH,
     groundTruthMarkerSize: GROUND_TRUTH_MARKER_SIZE,
     groundTruthColor: getChartInk(colorScheme).text,
@@ -1881,6 +1883,7 @@ const MyRespiVisualizationPanel = ({
     selectedModels: selectedSubmittedModels,
     target: selectedTarget,
     showLegendForFirstDate: showLegend,
+    showNowcasts,
     showMedian: submittedIntervalVisibility.median,
     show50: submittedIntervalVisibility.ci50,
     show95: submittedIntervalVisibility.ci95,
@@ -2213,6 +2216,8 @@ const MyRespiVisualizationPanel = ({
                   setIntervalVisibility={setIntervalVisibility}
                   showLegend={showLegend}
                   setShowLegend={setShowLegend}
+                  showNowcasts={showNowcasts}
+                  setShowNowcasts={setShowNowcasts}
                   intervalOptions={intervalOptions}
                 />
                 {comparisonEnabled && isComparing && (

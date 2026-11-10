@@ -141,6 +141,7 @@ const MetroPlotCard = ({
   chartScale,
   intervalVisibility,
   showLegend = true,
+  showNowcasts = false,
   showOtherGroundTruthSeasons = false,
   span = "4wk",
 }) => {
@@ -266,6 +267,7 @@ const MetroPlotCard = ({
     groundTruthColor: getChartInk(colorScheme).text,
     showLegendForFirstDate: showLegend && !isSmall,
     fillMissingQuantiles: true,
+    showNowcasts,
     showMedian,
     show50,
     show95,
@@ -428,6 +430,7 @@ const MetroCastView = ({
     chartScale,
     intervalVisibility,
     showLegend,
+    showNowcasts,
     showOtherGroundTruthSeasons,
     metrocastSpan,
   } = useView();
@@ -544,6 +547,7 @@ const MetroCastView = ({
         chartScale={chartScale}
         intervalVisibility={intervalVisibility}
         showLegend={showLegend}
+        showNowcasts={showNowcasts}
         showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
         span={metrocastSpan}
       />
@@ -589,6 +593,7 @@ const MetroCastView = ({
             chartScale={chartScale}
             intervalVisibility={intervalVisibility}
             showLegend={showLegend}
+            showNowcasts={showNowcasts}
             showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
             span={metrocastSpan}
           />
