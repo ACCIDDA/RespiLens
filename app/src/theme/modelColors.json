@@ -153,6 +153,7 @@
   "UMass-SAR": { "color": "#d62728" },
   "UMass-alloy": { "color": "#0b6e4f" },
   "UMass-ar6_pooled": { "color": "#bcbd22" },
+  "UMass-axial_r2": { "color": "#5e3a1f", "marker": "diamond" },
   "UMass-flusion": { "color": "#5e3a1f" },
   "UMass-gbqr": { "color": "#17becf" },
   "UMass-peakGB": { "color": "#d4a017", "marker": "square" },
@@ -187,5 +188,6 @@
   "epiforecasts-dyngam": { "color": "#ff7f0e" },
   "fjordhest-ensemble": { "color": "#bcbd22" },
   "fonz-wardweather": { "color": "#0b6e4f" },
-  "influcast-peak_gbm": { "color": "#b35900", "marker": "square", "dashed": true }
+  "influcast-peak_gbm": { "color": "#b35900", "marker": "square", "dashed": true },
+  "reasonspire-lagQR": { "color": "#ad1f77", "marker": "diamond" }
 }
