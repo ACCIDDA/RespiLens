@@ -3,7 +3,7 @@ import { usePersistentXRange } from "../hooks/usePersistentXRange";
 import { Stack, useMantineColorScheme } from "@mantine/core";
 import Plot from "react-plotly.js";
 import ModelSelector from "./ModelSelector";
-import { getModelColor } from "../config/datasets";
+import { getModelStyle } from "../config/datasets";
 import {
   CHART_CONSTANTS,
   FORECAST_LINE_OFFSET_DAYS,
@@ -25,7 +25,7 @@ import {
 } from "../utils/scaleUtils";
 import { useChartReset } from "../hooks/useChartReset";
 import useForecastDateDrag from "../hooks/useForecastDateDrag";
-import { extendStableModelOrder, hexToRgba } from "../utils/modelColorUtils";
+import { hexToRgba } from "../utils/modelColorUtils";
 import { copyRange, getRelayoutXRange } from "../utils/plotRange";
 import ChartCaption from "./ChartCaption";
 
@@ -174,15 +174,6 @@ const FluPeak = ({
   const show50 = intervalVisibility?.ci50 ?? true;
   const show95 = intervalVisibility?.ci95 ?? true;
   const normalizedChartScale = normalizeChartScale(chartScale);
-  const stableModelOrderRef = useRef([]);
-  const stableModelOrder = useMemo(() => {
-    const nextOrder = extendStableModelOrder(
-      stableModelOrderRef.current,
-      selectedModels,
-    );
-    stableModelOrderRef.current = nextOrder;
-    return nextOrder;
-  }, [selectedModels]);
 
   const activePeakModels = useMemo(() => {
     const activeModelSet = new Set();
@@ -296,7 +287,8 @@ const FluPeak = ({
         const pointColors = [];
 
         // Base color for this model (Solid, used for Legend)
-        const baseColorHex = getModelColor(model, stableModelOrder);
+        const { color: baseColorHex, marker: modelMarker } =
+          getModelStyle(model);
 
         datesToCheck.forEach((refDate, index) => {
           const dateData = peaks[refDate];
@@ -501,7 +493,7 @@ const FluPeak = ({
             marker: {
               color: pointColors,
               size: 12,
-              symbol: "circle",
+              symbol: modelMarker,
               line: { width: 1, color: "white" },
             },
             hoverlabel: {
@@ -524,7 +516,7 @@ const FluPeak = ({
             marker: {
               color: baseColorHex,
               size: 12,
-              symbol: "circle",
+              symbol: modelMarker,
               line: { width: 1, color: "white" },
             },
             showlegend: true,
@@ -578,7 +570,6 @@ const FluPeak = ({
     show95,
     showOtherGroundTruthSeasons,
     normalizedChartScale,
-    stableModelOrder,
     colorScheme,
   ]);
 
@@ -739,6 +730,7 @@ const FluPeak = ({
       <Stack gap={2}>
         <ChartCaption forecastNote />
         <ModelSelector
+          showDashedNote={false}
           models={peakModels}
           selectedModels={selectedModels}
           setSelectedModels={setSelectedModels}

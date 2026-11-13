@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Group,
   Stack,
@@ -11,10 +11,9 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
-import { getModelColor } from "../config/datasets";
+import { getModelColor, getModelStyle } from "../config/datasets";
 import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
 import ShortcutHint from "./ShortcutHint";
-import { extendStableModelOrder } from "../utils/modelColorUtils";
 
 // Model picker under the chart: one filterable checklist, coloured like the
 // chart's lines. "All" (the default, and while searching) lists every model
@@ -29,7 +28,7 @@ const ModelSelector = ({
   allowMultiple = true,
   disabled = false,
   modelColorFn = null,
-  getModelColor: legacyGetModelColor = null,
+  showDashedNote = true,
   // Only used to word the "not available" tooltip
   selectedDates = [],
   // The key that jumps to the filter box: true is M, or pass another key
@@ -52,23 +51,14 @@ const ModelSelector = ({
     },
     Boolean(shortcutKey) && !disabled && models.length > 0,
   );
-  const stableModelOrderRef = useRef([]);
-  const stableModelOrder = useMemo(() => {
-    const nextOrder = extendStableModelOrder(
-      stableModelOrderRef.current,
-      selectedModels,
-    );
-    stableModelOrderRef.current = nextOrder;
-    return nextOrder;
-  }, [selectedModels]);
 
-  const colorFor = (model) => {
-    const resolvedColorFn = modelColorFn || legacyGetModelColor;
-    if (resolvedColorFn) {
-      return resolvedColorFn(model, selectedModels, stableModelOrder);
-    }
-    return getModelColor(model, stableModelOrder) ?? undefined;
-  };
+  const colorFor = (model) =>
+    modelColorFn ? modelColorFn(model) : getModelColor(model);
+  // The peak chart draws points, so nothing on it is dashed
+  const hasDashedLine =
+    showDashedNote &&
+    !modelColorFn &&
+    selectedModels.some((model) => getModelStyle(model).dashed);
 
   const isActive = (model) => !activeModels || activeModels.has(model);
   const isSelected = (model) => selectedModels.includes(model);
@@ -298,6 +288,11 @@ const ModelSelector = ({
             );
           })}
         </div>
+      )}
+      {hasDashedLine && (
+        <Text size="xs" c="dimmed">
+          Dashed lines: models left out of the hub&apos;s ensemble.
+        </Text>
       )}
     </Stack>
   );

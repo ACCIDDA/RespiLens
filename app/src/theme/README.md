@@ -31,9 +31,9 @@ const MyComponent = () => {
 ```jsx
 import { useMantineTheme } from "@mantine/core";
 
-const MyComponent = ({ model, selectedModels }) => {
+const MyComponent = ({ model }) => {
   const theme = useMantineTheme();
-  const modelColor = theme.other.getModelColor(model, selectedModels);
+  const modelColor = theme.other.getModelColor(model);
 
   return <div style={{ backgroundColor: modelColor }}>Model visualization</div>;
 };
@@ -94,18 +94,23 @@ const MyComponent = ({ model, selectedModels }) => {
 
 ## Model Colors
 
-The model color system remains **unchanged** to preserve existing visualizations:
+Every model is drawn the same way on every chart, for everyone, whatever else is selected:
 
-- **20 distinct colors** for model differentiation
-- **Index-based assignment** based on selection order
-- **Automatic cycling** for more than 20 models
+- **Permanent assignment** in `modelColors.json`, kept up to date by `scripts/assign_model_colors.py`. Never edit an existing entry by hand: colors must not change.
+- **One blue for each hub's main ensemble**, reserved for them
+- **One gray for each hub's baseline**, reserved for them
+- **Dashed lines** for models excluded from their hub's ensemble (`designated_model: false`)
+- **Different markers** where a season has more models than colors (FluSight)
 - **Opacity variations** for confidence intervals
 
 ### Model Color Usage
 
 ```jsx
 // Get color for a specific model
-const modelColor = getModelColor(modelName, selectedModels);
+const modelColor = getModelColor(modelName);
+
+// Or all of it: { color, marker, dashed }
+const modelStyle = getModelStyle(modelName);
 
 // Use with opacity for confidence intervals
 const ci95Color = `${modelColor}${colors.forecast.confidence95}`;

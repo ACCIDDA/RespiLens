@@ -402,6 +402,9 @@ export const ViewProvider = ({ children }) => {
   const [intervalVisibility, setIntervalVisibility] = useState(
     () => urlManager.getAdvancedParams().intervalVisibility,
   );
+  const [showNowcasts, setShowNowcasts] = useState(
+    () => urlManager.getAdvancedParams().showNowcasts,
+  );
   const [showLegend, setShowLegend] = useState(
     () => urlManager.getAdvancedParams().showLegend,
   );
@@ -884,6 +887,7 @@ export const ViewProvider = ({ children }) => {
       chartScale: urlScale,
       intervalVisibility: urlIntervals,
       showLegend: urlLegend,
+      showNowcasts: urlShowNowcasts,
       showOtherGroundTruthSeasons: urlShowOtherGroundTruthSeasons,
       showHistogram: urlShowHistogram,
       metrocastSpan: urlMetrocastSpan,
@@ -904,6 +908,9 @@ export const ViewProvider = ({ children }) => {
     }
     if (JSON.stringify(urlIntervals) !== JSON.stringify(intervalVisibility)) {
       setIntervalVisibility(urlIntervals);
+    }
+    if (urlShowNowcasts !== showNowcasts) {
+      setShowNowcasts(urlShowNowcasts);
     }
     if (urlLegend !== showLegend) {
       setShowLegend(urlLegend);
@@ -926,6 +933,7 @@ export const ViewProvider = ({ children }) => {
     chartScale,
     intervalVisibility,
     showLegend,
+    showNowcasts,
     showOtherGroundTruthSeasons,
     showHistogram,
     metrocastSpan,
@@ -950,6 +958,16 @@ export const ViewProvider = ({ children }) => {
         }
         return next;
       });
+    },
+    [urlManager, isForecastPage],
+  );
+
+  const setShowNowcastsWithUrl = useCallback(
+    (nextValue) => {
+      setShowNowcasts(nextValue);
+      if (isForecastPage) {
+        urlManager.updateAdvancedParams({ showNowcasts: nextValue });
+      }
     },
     [urlManager, isForecastPage],
   );
@@ -1078,6 +1096,8 @@ export const ViewProvider = ({ children }) => {
     setIntervalVisibility: setIntervalVisibilityWithUrl,
     showLegend,
     setShowLegend: setShowLegendWithUrl,
+    showNowcasts,
+    setShowNowcasts: setShowNowcastsWithUrl,
     showOtherGroundTruthSeasons,
     setShowOtherGroundTruthSeasons: setShowOtherGroundTruthSeasonsWithUrl,
     showHistogram,

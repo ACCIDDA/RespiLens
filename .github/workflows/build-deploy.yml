@@ -19,7 +19,9 @@ jobs:
     steps:
     - name: Checkout visualization repository
       uses: actions/checkout@v4
-      
+      with:
+        fetch-depth: 0
+
     - name: Clone Forecast Hubs
       run: |
         # Shallow clones in parallel: only the current hub contents are needed, not history
@@ -35,6 +37,29 @@ jobs:
       with:
         python-version: '3.11'
         
+    - name: Assign colors to new models
+      run: |
+        python scripts/assign_model_colors.py \
+          --flusight-hub-path FluSight-forecast-hub \
+          --rsv-hub-path rsv-forecast-hub \
+          --covid-hub-path covid19-forecast-hub \
+          --flu-metrocast-hub-path flu-metrocast
+
+    # The file has to outlive this run: a color is only permanent once committed.
+    # A failed push isn't worth losing the deploy, and the next run tries again.
+    - name: Commit new model colors
+      run: |
+        git add app/src/theme/modelColors.json
+        if git diff --cached --quiet; then
+          echo "No new model colors."
+        else
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "assign colors to new models"
+          git pull --rebase origin "${{ github.ref_name }}" && git push origin "HEAD:${{ github.ref_name }}" \
+            || echo "::warning::Could not push new model colors; new models use a name-based color until the next run."
+        fi
+
     - name: Cache Python dependencies
       uses: actions/cache@v4
       with:
@@ -78,6 +103,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Latest commit, to include the model colors the previous job pushed
+          ref: ${{ github.ref_name }}
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

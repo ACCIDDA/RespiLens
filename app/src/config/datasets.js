@@ -107,7 +107,12 @@ export const getAllViewValues = () => {
 };
 
 // Import centralized colors from theme
-import { MODEL_COLORS, getModelColor } from "../theme/mantine.js";
+import {
+  MODEL_COLORS,
+  getModelColor,
+  getModelStyle,
+  getSeriesColor,
+} from "../theme/mantine.js";
 
 // Re-export for backward compatibility
-export { MODEL_COLORS, getModelColor };
+export { MODEL_COLORS, getModelColor, getModelStyle, getSeriesColor };

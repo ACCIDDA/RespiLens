@@ -4,6 +4,7 @@ In this `README.md`, you will find brief guides for primary [RespiLens](https://
 
 * [external_to_projections](#external_to_projections)
 * [process_RespiLens_data](#process_RespiLens_data)
+* [assign_model_colors](#assign_model_colors)
 * [hub_dataset_processor](#hub_dataset_processor)
 * [nhsn_data_processor](#nhsn_data_processor)
 * [helper](#helper)
@@ -141,6 +142,10 @@ You can run `process_RespiLens_data.py` with the following options:
 
 Alternatively, users can execute run the command `bash update_all_data_source.sh` from the top-level of the RespiLens directory to fetch/update all data required for local use of RespiLens.
 
+
+## assign_model_colors
+
+Gives each forecast model a permanent color in `app/src/theme/modelColors.json`, so a model looks the same on every chart and for every viewer. It reads the hub clones, keeps every existing entry, and only adds models new to the file; the deploy workflow commits the result. Models that never overlap in a season of a hub may share a color. Where a season has more models than colors, overlapping models share a color with different markers. Each hub's main ensemble gets the reserved blue and its baseline the reserved gray. Models with `designated_model: false` are marked dashed, except the main ensembles.
 
 ## hub_dataset_processor
 

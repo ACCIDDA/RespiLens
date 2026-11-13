@@ -1,6 +1,6 @@
-import { useMemo, useRef } from "react";
-import { MODEL_COLORS, getModelColor } from "../config/datasets";
-import { extendStableModelOrder } from "../utils/modelColorUtils";
+import { useMemo } from "react";
+import { getVisiblePredictions } from "../utils/forecastPredictions";
+import { getModelStyle } from "../config/datasets";
 import { calculateRelativeWIS, calculateWIS } from "../utils/forecastleScoring";
 import { buildHistoricalGroundTruthTraces } from "../utils/forecastSeasons";
 
@@ -132,7 +132,6 @@ const useQuantileForecastTraces = ({
   formatValue = defaultFormatValue,
   modelHoverBuilder = null,
   modelColorFn = null,
-  modelOrder = null,
   modelLineWidth = 2,
   modelMarkerSize = 6,
   groundTruthLineWidth = 1.5,
@@ -140,6 +139,7 @@ const useQuantileForecastTraces = ({
   groundTruthColor = "black",
   showLegendForFirstDate = true,
   fillMissingQuantiles = false,
+  showNowcasts = false,
   showMedian = true,
   show50 = true,
   show95 = true,
@@ -150,16 +150,6 @@ const useQuantileForecastTraces = ({
   baselineModelName = null,
   showOtherGroundTruthSeasons = false,
 }) => {
-  const stableModelOrderRef = useRef([]);
-  const stableModelOrder = useMemo(() => {
-    const nextOrder = extendStableModelOrder(
-      stableModelOrderRef.current,
-      selectedModels,
-    );
-    stableModelOrderRef.current = nextOrder;
-    return nextOrder;
-  }, [selectedModels]);
-
   return useMemo(() => {
     if (!groundTruth || !forecasts || selectedDates.length === 0 || !target) {
       return { traces: [], rawYRange: null, hasForecastTraces: false };
@@ -262,8 +252,10 @@ const useQuantileForecastTraces = ({
           ]),
         );
 
-        const sortedPredictions = Object.values(
-          forecast.predictions || {},
+        const sortedPredictions = getVisiblePredictions(
+          forecast.predictions,
+          date,
+          showNowcasts,
         ).sort((a, b) => new Date(a.date) - new Date(b.date));
 
         sortedPredictions.forEach((pred) => {
@@ -403,10 +395,11 @@ const useQuantileForecastTraces = ({
         );
         if (forecastDates.length === 0 && !hasIntervalSeries) return [];
 
+        const modelStyle = getModelStyle(model);
         const modelColor = modelColorFn
-          ? modelColorFn(model, selectedModels, modelOrder ?? stableModelOrder)
-          : (getModelColor(model, modelOrder ?? stableModelOrder) ??
-            MODEL_COLORS[0]);
+          ? modelColorFn(model)
+          : modelStyle.color;
+        const modelDash = modelStyle.dashed ? "dash" : "solid";
         const isFirstDate = dateIndex === 0;
 
         const traces = [];
@@ -441,8 +434,12 @@ const useQuantileForecastTraces = ({
             name: model,
             type: "scatter",
             mode: "lines+markers",
-            line: { color: modelColor, width: modelLineWidth, dash: "solid" },
-            marker: { size: modelMarkerSize, color: modelColor },
+            line: { color: modelColor, width: modelLineWidth, dash: modelDash },
+            marker: {
+              size: modelMarkerSize,
+              color: modelColor,
+              symbol: modelStyle.marker,
+            },
             showlegend: showLegendForFirstDate ? isFirstDate : false,
             legendgroup: model,
             text: hoverTexts,
@@ -465,7 +462,7 @@ const useQuantileForecastTraces = ({
             name: model,
             type: "scatter",
             mode: "lines",
-            line: { color: modelColor, width: modelLineWidth },
+            line: { color: modelColor, width: modelLineWidth, dash: modelDash },
             showlegend: showLegendForFirstDate ? isFirstDate : false,
             legendgroup: model,
             hoverinfo: "skip",
@@ -511,7 +508,6 @@ const useQuantileForecastTraces = ({
     formatValue,
     modelHoverBuilder,
     modelColorFn,
-    modelOrder,
     modelLineWidth,
     modelMarkerSize,
     groundTruthLineWidth,
@@ -519,6 +515,7 @@ const useQuantileForecastTraces = ({
     groundTruthColor,
     showLegendForFirstDate,
     fillMissingQuantiles,
+    showNowcasts,
     showMedian,
     show50,
     show95,
@@ -527,7 +524,6 @@ const useQuantileForecastTraces = ({
     transformY,
     groundTruthHoverFormatter,
     baselineModelName,
-    stableModelOrder,
     showOtherGroundTruthSeasons,
   ]);
 };

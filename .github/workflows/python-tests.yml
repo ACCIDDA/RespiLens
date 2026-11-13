@@ -25,4 +25,4 @@ jobs:
           pip install pandas pytest jsonschema requests
 
       - name: Run processor unit tests
-        run: python -m pytest tests/test_processors.py
+        run: python -m pytest tests/test_processors.py tests/test_assign_model_colors.py

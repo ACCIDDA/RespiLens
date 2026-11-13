@@ -1,4 +1,5 @@
 import { createTheme } from "@mantine/core";
+import pinnedModelStyles from "./modelColors.json";
 
 // Model colors - keep existing model color system intact
 export const MODEL_COLORS = [
@@ -9,32 +10,64 @@ export const MODEL_COLORS = [
   "#9467bd",
   "#8c564b",
   "#e377c2",
-  "#7f7f7f",
+  "#a0a0a0",
   "#bcbd22",
   "#17becf",
-  "#aec7e8",
-  "#ffbb78",
-  "#98df8a",
-  "#ff9896",
-  "#c5b0d5",
-  "#c49c94",
-  "#f7b6d2",
-  "#c7c7c7",
-  "#dbdb8d",
-  "#9edae5",
+  "#3f51b5",
+  "#b35900",
+  "#0b6e4f",
+  "#8e1b3a",
+  "#5b2a86",
+  "#5e3a1f",
+  "#ad1f77",
+  "#37717f",
+  "#767600",
+  "#00897b",
+  "#d926a9",
+  "#b48ede",
+  "#7fb800",
+  "#f26d5b",
+  "#d4a017",
+  "#a68a64",
 ];
 
-// Hub ensembles are the reference series rather than one model among many,
-// so they get their own dedicated colour instead of a palette slot.
+// Each hub's main ensemble is the reference series rather than one model among
+// many, so it gets its own dedicated colour instead of a palette slot.
 export const ENSEMBLE_COLOR = "#0d8ae6";
 
-export const isEnsembleModel = (model) =>
-  typeof model === "string" && /ensemble/i.test(model);
+// Likewise for each hub's baseline
+const BASELINE_COLOR = "#a0a0a0";
 
-// Model color helper function
-export const getModelColor = (model, modelOrder = []) => {
-  if (isEnsembleModel(model)) return ENSEMBLE_COLOR;
-  const index = modelOrder.indexOf(model);
+// Blue and gray are reserved for the hub ensembles and baselines
+const UNRESERVED_COLORS = MODEL_COLORS.slice(1).filter(
+  (color) => color !== BASELINE_COLOR,
+);
+
+// For a model too new to be in modelColors.json: still depends on nothing but its name
+const getColorFromName = (model) => {
+  let hash = 0;
+  for (const char of String(model)) {
+    hash = (hash * 31 + char.codePointAt(0)) | 0;
+  }
+  return UNRESERVED_COLORS[Math.abs(hash) % UNRESERVED_COLORS.length];
+};
+
+// How a model is drawn on every chart, for everyone. Depends only on its name;
+// assigned by scripts/assign_model_colors.py. Dashed: excluded from the hub's ensemble.
+export const getModelStyle = (model) => {
+  const pinned = pinnedModelStyles[model];
+  return {
+    color: pinned?.color ?? getColorFromName(model),
+    marker: pinned?.marker ?? "circle",
+    dashed: pinned?.dashed ?? false,
+  };
+};
+
+export const getModelColor = (model) => getModelStyle(model).color;
+
+// For series that aren't models, such as the NHSN and NSSP columns
+export const getSeriesColor = (series, seriesOrder = []) => {
+  const index = seriesOrder.indexOf(series);
   return index >= 0 ? MODEL_COLORS[index % MODEL_COLORS.length] : null;
 };
 
