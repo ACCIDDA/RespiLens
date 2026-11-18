@@ -162,6 +162,14 @@ const latestObserved = (groundTruth, target, date) => {
   return null;
 };
 
+// Weeks from the latest reported week to a forecast week
+const weeksAhead = (reportedWeek, forecastWeek) => {
+  const weeks = Math.round(
+    (Date.parse(forecastWeek) - Date.parse(reportedWeek)) / (7 * 86400000),
+  );
+  return `${weeks} week${weeks === 1 ? "" : "s"} ahead`;
+};
+
 const quantile = (prediction, q) => {
   const i = (prediction?.quantiles || []).findIndex((x) => Number(x) === q);
   return i === -1 ? null : prediction.values[i];
@@ -171,7 +179,7 @@ const quantile = (prediction, q) => {
 // and its 95% interval
 const forecastTile = (label, model, forecast, latest, unit) => {
   const p = forecast?.predictions?.["1"];
-  const tile = { label: `${label}, next week`, color: colorOf(model) };
+  const tile = { label: `${label} forecast`, color: colorOf(model) };
   if (!p) return { ...tile, detail: "No forecast" };
   const median = quantile(p, 0.5);
   const diff = latest ? median - latest.value : null;
@@ -186,19 +194,19 @@ const forecastTile = (label, model, forecast, latest, unit) => {
           ? `${Math.round(Math.abs(diff / latest.value) * 100)}%`
           : unit.format(Math.abs(diff)),
     },
-    detail: `95%: ${unit.format(quantile(p, 0.025))}–${unit.format(quantile(p, 0.975))}, wk ending ${formatDate(p.date)}`,
+    detail: `Week ending ${formatDate(p.date)}${latest ? ` (${weeksAhead(latest.date, p.date)})` : ""}. 95% interval: ${unit.format(quantile(p, 0.025))}–${unit.format(quantile(p, 0.975))}`,
   };
 };
 
-const rateChangeTile = (forecast) => {
-  const label = "Rate change, next week";
+const rateChangeTile = (forecast, date) => {
+  const label = "Rate change forecast";
   const p = forecast?.predictions?.["1"];
   if (!p) return { label, detail: "No forecast" };
   const best = p.probabilities.indexOf(Math.max(...p.probabilities));
   return {
     label,
     value: RATE_CHANGE_LABELS[p.categories[best]],
-    detail: `${Math.round(p.probabilities[best] * 100)}% probability (FluSight ensemble)`,
+    detail: `Week ending ${formatDate(p.date)} (${weeksAhead(shift(date, -7), p.date)}). ${Math.round(p.probabilities[best] * 100)}% probability (FluSight ensemble)`,
   };
 };
 
@@ -231,9 +239,9 @@ const buildChart = ({
     facts: describeSeries(groundTruth, target, date, unit.floor),
     tiles: [
       {
-        label: "Latest observed",
+        label: "Reported",
         value: latest && unit.format(latest.value),
-        detail: latest && `wk ending ${formatDate(latest.date)}`,
+        detail: latest && `Week ending ${formatDate(latest.date)}`,
       },
       ...tiles.map(([model, label]) =>
         forecastTile(label, model, models[model], latest, unit),
@@ -270,7 +278,7 @@ const fluSection = (data, date, stateCode, intervals) => {
   const ed = buildChart({
     title: "Emergency department visits",
     subtitle:
-      "Percent of ED visits due to influenza (NSSP), statewide. FluSight and MetroCast forecast the same target.",
+      "Percent of emergency department visits due to influenza (NSSP), statewide. This target is forecast independently by FluSight and by MetroCast.",
     groundTruth:
       data.metrocast?.ground_truth ??
       percentGroundTruth(data.flusight?.ground_truth, FLU_ED_FLUSIGHT, FLU_ED),
@@ -291,14 +299,16 @@ const fluSection = (data, date, stateCode, intervals) => {
   const hosp = buildChart({
     title: "Hospital admissions",
     subtitle:
-      "Weekly confirmed influenza hospital admissions (NHSN), statewide, with the FluSight ensemble's forecast of the season peak (size and week).",
+      "Weekly confirmed influenza hospital admissions (NHSN), statewide. The point with error bars is the FluSight ensemble's forecast of this season's peak: how high it gets, and in which week.",
     groundTruth: data.flusight?.ground_truth,
     target: FLU_HOSP,
     unit: COUNT,
     date,
     models: { [FLUSIGHT]: fs[FLU_HOSP]?.[FLUSIGHT] },
     tiles: [[FLUSIGHT, "FluSight ensemble"]],
-    extraTiles: [rateChangeTile(fs["wk flu hosp rate change"]?.[FLUSIGHT])],
+    extraTiles: [
+      rateChangeTile(fs["wk flu hosp rate change"]?.[FLUSIGHT], date),
+    ],
     extraTraces: peakTraces,
     bounds: peakEnd && {
       start: `${month >= 8 ? year : year - 1}-08-01`,
@@ -310,9 +320,9 @@ const fluSection = (data, date, stateCode, intervals) => {
     key: "flu",
     label: "Flu",
     brief: [
-      seriesSentence("Flu ED visits were at", ed.facts, PERCENT.format),
+      seriesSentence("Reported flu ED visits were", ed.facts, PERCENT.format),
       seriesSentence(
-        "Weekly flu hospital admissions were",
+        "Reported weekly flu hospital admissions were",
         hosp.facts,
         COUNT.format,
       ),
@@ -321,6 +331,7 @@ const fluSection = (data, date, stateCode, intervals) => {
         peak?.["peak week inc flu hosp"]?.[FLUSIGHT]?.predictions,
         hosp.facts?.peak,
         COUNT.format,
+        hosp.facts?.latest?.date,
       ),
     ],
     charts: [ed, hosp],
@@ -343,10 +354,10 @@ const hubSection = (hub, hubData, date) => {
   if (!hubData) return { ...hub, missing: `No ${hub.hubName} data.` };
   const fc = hubData.forecasts?.[date] || {};
   const gt = hubData.ground_truth;
-  const tiles = [[hub.ensemble, hub.ensemble]];
+  const tiles = [[hub.ensemble, `${hub.hubName} ensemble`]];
   const ed = buildChart({
     title: "Emergency department visits",
-    subtitle: `Percent of ED visits due to ${hub.label} (NSSP), statewide.`,
+    subtitle: `Percent of emergency department visits due to ${hub.label} (NSSP), statewide.`,
     groundTruth: percentGroundTruth(gt, hub.edTarget, hub.edKey),
     target: hub.edKey,
     unit: PERCENT,
@@ -370,12 +381,12 @@ const hubSection = (hub, hubData, date) => {
     ...hub,
     brief: [
       seriesSentence(
-        `${hub.label} ED visits were at`,
+        `Reported ${hub.label} ED visits were`,
         ed.facts,
         PERCENT.format,
       ),
       seriesSentence(
-        `Weekly ${hub.label} hospital admissions were`,
+        `Reported weekly ${hub.label} hospital admissions were`,
         hosp.facts,
         COUNT.format,
       ),
@@ -401,7 +412,7 @@ const StatTile = ({ label, value, detail, color, delta }) => (
         >
           {delta.flat ? "≈ no change" : `${delta.up ? "▲" : "▼"} ${delta.text}`}{" "}
           <Text span size="xs" c="dimmed" fw={400}>
-            vs. latest observed
+            vs. reported
           </Text>
         </Text>
       )}
@@ -493,7 +504,7 @@ const DiseasePanel = ({ section, chartProps, compare }) => {
       {compare?.day && (
         <Section
           title={compareTitle}
-          subtitle="Latest week and the hub ensemble's forecast 2–4 weeks on. Hospital admissions are per 100,000 people."
+          subtitle="The latest reported week, and the hub ensemble's forecast for each of the 2 to 4 weeks after it. Hospital admissions are per 100,000 people."
         >
           <StateComparison {...compare} geo={compare.geo.states} />
         </Section>
@@ -524,8 +535,8 @@ const DiseasePanel = ({ section, chartProps, compare }) => {
           title={subsTitle}
           subtitle={
             subs.some((l) => l.models.length)
-              ? "Flu ED visits (%), MetroCast ensembles (4 weeks and full season)."
-              : "Flu ED visits (%). MetroCast has no sub-state forecasts for this date; observed data only."
+              ? "Percent of emergency department visits due to influenza in each health district, with MetroCast's 4-week and full-season ensemble forecasts."
+              : "Percent of emergency department visits due to influenza in each health district. MetroCast has no district forecasts for this date, so only observed data is shown."
           }
         >
           {compare?.day && (
@@ -686,6 +697,7 @@ const StateSummaryPage = () => {
     showOtherGroundTruthSeasons: showOtherSeasons,
     // The 4-week and full-season forecasts are drawn together
     span: "season",
+    groundTruthLabel: "Reported",
     modelColorFn: colorOf,
   };
   const title = `${config.name} State Summary`;

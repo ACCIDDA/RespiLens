@@ -80,8 +80,8 @@ const peakPhrase = ({ latest, peak }, fmt) => {
   const share = latest.value / peak.value;
   const peakText = `${fmt(peak.value)}, week ending ${formatWeek(peak.date)}`;
   return share >= 1
-    ? `already above last season's peak (${peakText})`
-    : `${pct(share)} of last season's peak (${peakText})`;
+    ? `already above last season's reported peak (${peakText})`
+    : `${pct(share)} of last season's reported peak (${peakText})`;
 };
 
 /**
@@ -116,14 +116,20 @@ const seasonWeekOffset = (forecastWeek, lastPeakWeek) => {
  * `peakSize` is the quantile forecast of the peak, `peakWeek` the pmf over
  * weeks.
  */
-export const peakSentence = (peakSize, peakWeek, lastPeak, fmt) => {
+export const peakSentence = (
+  peakSize,
+  peakWeek,
+  lastPeak,
+  fmt,
+  reportedWeek,
+) => {
   const q = (level) => {
     const i = peakSize?.quantiles?.findIndex((x) => Number(x) === level);
     return i >= 0 ? peakSize.values[i] : null;
   };
   const median = q(0.5);
   if (median === null) return null;
-  let text = `The FluSight ensemble expects this season's hospital admissions to peak at about ${fmt(median)} a week`;
+  let text = `The FluSight ensemble forecasts this season's hospital admissions to peak at about ${fmt(median)} a week`;
   if (q(0.25) !== null && q(0.75) !== null)
     text += ` (50% interval ${fmt(q(0.25))}–${fmt(q(0.75))})`;
   if (lastPeak?.value > 0) {
@@ -134,19 +140,22 @@ export const peakSentence = (peakSize, peakWeek, lastPeak, fmt) => {
         : ratio > 1
           ? `${pct(ratio - 1)} above`
           : `${pct(1 - ratio)} below`;
-    text += `, ${vs} last season's peak of ${fmt(lastPeak.value)}`;
+    text += `, ${vs} last season's reported peak of ${fmt(lastPeak.value)}`;
   }
   const weeks = peakWeek?.["peak week"] || [];
   const probs = peakWeek?.probabilities || [];
   if (weeks.length && probs.length) {
     const best = probs.indexOf(Math.max(...probs));
-    text += `. The most likely peak week is the week ending ${formatWeek(weeks[best])} (${pct(probs[best])} chance)`;
+    const ahead = reportedWeek
+      ? `${Math.round((Date.parse(weeks[best]) - Date.parse(reportedWeek)) / (7 * 86400000))} weeks ahead, `
+      : "";
+    text += `. The most likely peak week in the forecast is the week ending ${formatWeek(weeks[best])} (${ahead}${pct(probs[best])} chance)`;
     if (lastPeak) {
       const offset = seasonWeekOffset(weeks[best], lastPeak.date);
       text +=
         offset === 0
-          ? ", the same time of year as last season's peak"
-          : `, about ${Math.abs(offset)} week${Math.abs(offset) === 1 ? "" : "s"} ${offset < 0 ? "earlier" : "later"} than last season's (week ending ${formatWeek(lastPeak.date)})`;
+          ? ", the same time of year as last season's reported peak"
+          : `, about ${Math.abs(offset)} week${Math.abs(offset) === 1 ? "" : "s"} ${offset < 0 ? "earlier" : "later"} than last season's reported peak (week ending ${formatWeek(lastPeak.date)})`;
     }
   }
   return `${text}.`;

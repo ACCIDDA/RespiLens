@@ -151,6 +151,8 @@ export const MetroPlotCard = ({
   extraTraces = null,
   // Optional: the small chart's height in px
   tileHeight = TILE_PLOT_HEIGHT,
+  // Optional: the legend name of the observed series
+  groundTruthLabel = "Ground Truth Data",
 }) => {
   const groundTruth = locationData?.ground_truth;
   const allForecasts = locationData?.forecasts;
@@ -263,7 +265,7 @@ export const MetroPlotCard = ({
     colorSeed,
     modelColorFn,
     target: selectedTarget,
-    groundTruthLabel: "Ground Truth Data",
+    groundTruthLabel,
     groundTruthValueFormat: `%{y:.${valueDecimals}f}`,
     valueSuffix,
     formatValue: (value) => value.toFixed(valueDecimals),

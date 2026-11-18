@@ -19,14 +19,14 @@ import {
   shiftDateStringByDays,
 } from "../../constants/chart";
 
-// A snapshot row is [latest observed, ensemble median at horizons 0-3]; the
-// latest observation is the week before the forecast date, so horizons 1-3
-// are 2-4 weeks after it
+// A snapshot row is [latest reported value, ensemble median at horizons
+// 0-3]; the latest reported week is the one before the forecast date, so
+// horizons 1-3 are the 2-4 weeks after it. Every label says which it is.
 const WHEN = [
-  { index: 0, weeks: 0, label: "Now" },
-  { index: 2, weeks: 2, label: "+2 weeks" },
-  { index: 3, weeks: 3, label: "+3 weeks" },
-  { index: 4, weeks: 4, label: "+4 weeks" },
+  { index: 0, weeks: 0, label: "Reported" },
+  { index: 2, weeks: 2, label: "Forecast" },
+  { index: 3, weeks: 3, label: "Forecast" },
+  { index: 4, weeks: 4, label: "Forecast" },
 ];
 const PALETTE = [
   "#eff3ff",
@@ -45,6 +45,10 @@ const shortDate = (date) =>
     day: "numeric",
   });
 
+// How far a forecast week is past the latest reported week
+const ahead = (weeks, short = false) =>
+  `${weeks} ${short ? "wk" : weeks === 1 ? "week" : "weeks"} ahead`;
+
 const ordinal = (n) => {
   const suffixes = ["th", "st", "nd", "rd"];
   const v = n % 100;
@@ -53,8 +57,9 @@ const ordinal = (n) => {
 
 /**
  * Where one location sits among its peers (states, or a state's districts):
- * a map colored by value now or as forecast 2-4 weeks on, a sentence on the
- * clicked location's rank, and every peer's change from now to 4 weeks.
+ * a map colored by the latest reported value or the forecast 2-4 weeks
+ * later, a sentence on the clicked location's rank, and every peer's change
+ * from reported to forecast 4 weeks later.
  *
  * rows: {key: snapshot row}; names: {key: name}; focus: the summary's key
  * (highlighted); geo: features for the map; featureRow(feature) -> key;
@@ -113,18 +118,21 @@ const SummaryComparison = ({
 
   const describe = (key) => {
     const value = rows[key]?.[index];
+    const week = `the week ending ${weekLabel(weeks)}`;
     if (value == null)
-      return `${names[key]}: no ${weeks ? "forecast" : "data"}`;
-    const rank = ranked.indexOf(key) + 1;
-    const now = rows[key][0];
-    const later = rows[key][4];
-    let text = `${names[key]}: ${format(value)}, ${ordinal(rank)} highest of ${ranked.length} ${peers}`;
-    if (!weeks && now != null && later != null)
-      text += `; forecast ${format(later)} by ${weekLabel(4)} (${later >= now ? "+" : ""}${Math.round((later / (now || 1) - 1) * 100)}%)`;
-    return `${text}.`;
+      return `${names[key]}: no ${weeks ? "forecast" : "reported value"} for ${week}.`;
+    const rank = `${ordinal(ranked.indexOf(key) + 1)} highest of ${ranked.length} ${peers}`;
+    if (weeks)
+      return `${names[key]}: forecast ${format(value)} for ${week} (${ahead(weeks)}), ${rank}.`;
+    const reported = rows[key][0];
+    const forecast = rows[key][4];
+    let text = `${names[key]}: reported ${format(value)} for ${week}, ${rank}.`;
+    if (forecast != null)
+      text += ` Forecast ${format(forecast)} for the week ending ${weekLabel(4)} (${ahead(4)}, ${forecast >= reported ? "+" : ""}${Math.round((forecast / (reported || 1) - 1) * 100)}%).`;
+    return text;
   };
 
-  // Now → in 4 weeks, every peer, lowest at the bottom
+  // Reported → forecast 4 weeks later, every peer, lowest at the bottom
   const chart = useMemo(() => {
     const order = Object.keys(rows)
       .filter((key) => rows[key][0] != null)
@@ -135,7 +143,7 @@ const SummaryComparison = ({
       key === focus ? FOCUS_COLOR : key === selected ? SELECTED_COLOR : base;
     const ink = getChartInk(colorScheme);
     const y = order.map(label);
-    // Strip: one dot per peer on two rows (now, in 4 weeks), names on
+    // Strip: one dot per peer on two rows (reported, forecast), names on
     // hover. A fixed small jitter keeps neighbours apart; the highlighted
     // ones sit on the row's line, drawn last so they stay on top.
     const highlighted = [selected, focus].filter((k) => k && rows[k]);
@@ -166,7 +174,7 @@ const SummaryComparison = ({
       hovertemplate: `<b>%{text}</b><br>${name}: %{x:.2f}${suffix}<extra></extra>`,
     });
     const strip = [
-      // The highlighted peers' move from now to 4 weeks
+      // The highlighted peers' move from reported to forecast
       ...highlighted.map((k) => ({
         x: [rows[k][0], rows[k][4]],
         y: [1, 0],
@@ -174,8 +182,20 @@ const SummaryComparison = ({
         line: { color: color(k), width: 1.5, dash: "dot" },
         hoverinfo: "skip",
       })),
-      stripRow(0, 1, "Now", "circle", "#adb5bd"),
-      stripRow(4, 0, "In 4 weeks", "diamond", PALETTE[4]),
+      stripRow(
+        0,
+        1,
+        `Reported, week ending ${weekLabel(0)}`,
+        "circle",
+        "#adb5bd",
+      ),
+      stripRow(
+        4,
+        0,
+        `Forecast, week ending ${weekLabel(4)} (${ahead(4)})`,
+        "diamond",
+        PALETTE[4],
+      ),
     ];
     return {
       strip,
@@ -196,29 +216,29 @@ const SummaryComparison = ({
           y,
           customdata: order,
           mode: "markers",
-          name: `Now (week ending ${weekLabel(0)})`,
+          name: `Reported, week ending ${weekLabel(0)}`,
           marker: { size: 6, color: order.map((k) => color(k, "#adb5bd")) },
-          hovertemplate: `%{y}<br>Now: %{x:.2f}${suffix}<extra></extra>`,
+          hovertemplate: `%{y}<br>Reported, week ending ${weekLabel(0)}: %{x:.2f}${suffix}<extra></extra>`,
         },
         {
           x: order.map((k) => rows[k][4]),
           y,
           customdata: order,
           mode: "markers",
-          name: `In 4 weeks (${weekLabel(4)}, ensemble median)`,
+          name: `Forecast, week ending ${weekLabel(4)} (${ahead(4)}, ensemble median)`,
           marker: {
             size: 7,
             symbol: "diamond",
             color: order.map((k) => color(k, PALETTE[4])),
           },
-          hovertemplate: `%{y}<br>In 4 weeks: %{x:.2f}${suffix}<extra></extra>`,
+          hovertemplate: `%{y}<br>Forecast, week ending ${weekLabel(4)} (${ahead(4)}): %{x:.2f}${suffix}<extra></extra>`,
         },
       ],
     };
   }, [rows, names, focus, selected, colorScheme, suffix]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const base = getBaseChartLayout(colorScheme, { compact: true });
-  // Every peer ranked, now → in 4 weeks: beside the map for districts,
+  // Every peer ranked, reported → forecast: beside the map for districts,
   // full width under it for states once expanded
   const rankingChart = (
     <Plot
@@ -274,9 +294,11 @@ const SummaryComparison = ({
           onChange={setWhen}
           data={WHEN.map((w) => ({
             value: String(w.index),
-            label: `${w.label} (${weekLabel(w.weeks)})`,
+            label: w.weeks
+              ? `${w.label} ${weekLabel(w.weeks)} (${ahead(w.weeks, true)})`
+              : `${w.label} ${weekLabel(w.weeks)}`,
           }))}
-          aria-label="Week shown on the map"
+          aria-label="Week shown on the map (week ending)"
         />
         <Group gap={2} wrap="nowrap" aria-label="Map color scale">
           {PALETTE.map((c, i) => (
@@ -342,12 +364,14 @@ const SummaryComparison = ({
           {reference && (
             <Text size="xs" c="dimmed">
               {reference.name}:{" "}
-              {format(reference.row[index] ?? reference.row[0])}
+              {reference.row[index] == null
+                ? `no ${weeks ? "forecast" : "reported value"}`
+                : `${weeks ? "forecast" : "reported"} ${format(reference.row[index])}`}
             </Text>
           )}
           <Text size="xs" c="dimmed">
-            Click a {peers === "states" ? "state" : "district"} on the map or
-            the chart to see where it sits.
+            Highlight another {peers === "states" ? "state" : "district"} by
+            clicking it on the map.
           </Text>
           {!collapsible && rankingChart}
           {!expanded && (
@@ -372,8 +396,8 @@ const SummaryComparison = ({
                   range: [-0.5, 1.5],
                   tickvals: [0, 1],
                   ticktext: [
-                    `In 4 weeks (${weekLabel(4)})`,
-                    `Now (${weekLabel(0)})`,
+                    `Forecast, ${weekLabel(4)} (${ahead(4, true)})`,
+                    `Reported, ${weekLabel(0)}`,
                   ],
                   showgrid: false,
                   zeroline: false,
