@@ -73,6 +73,14 @@ const COLORS = {
 };
 const colorOf = (model) => COLORS[model] ?? getModelColor(model);
 
+// The ensembles the page shows, under their hub names
+const ENSEMBLES = [
+  FLUSIGHT,
+  ...Object.values(METROCAST_ENSEMBLES).flat(),
+  "CovidHub-ensemble",
+  "RSVHub-ensemble",
+];
+
 const FLU_ED = "Flu ED visits pct";
 // Same NSSP signal as MetroCast's, as a proportion instead of a percent
 const FLU_ED_FLUSIGHT = "wk inc flu prop ed visits";
@@ -641,7 +649,8 @@ const StateSummaryPage = () => {
     [stateCode],
   );
 
-  // Every date any file has a forecast for
+  // Every date one of the shown ensembles has a forecast for: a date where
+  // only individual models have submitted would show empty boxes
   const availableDates = useMemo(() => {
     if (!data) return [];
     const files = [
@@ -650,7 +659,15 @@ const StateSummaryPage = () => {
       ...Object.values(data.hubs),
       ...data.subLocations.map((l) => l.data),
     ];
-    const dates = files.flatMap((d) => Object.keys(d?.forecasts || {}));
+    const hasEnsemble = (targets) =>
+      Object.values(targets || {}).some((models) =>
+        ENSEMBLES.some((name) => models?.[name]),
+      );
+    const dates = files.flatMap((d) =>
+      Object.entries(d?.forecasts || {})
+        .filter(([, targets]) => hasEnsemble(targets))
+        .map(([date]) => date),
+    );
     return [...new Set(dates)].sort();
   }, [data]);
 
