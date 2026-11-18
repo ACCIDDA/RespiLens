@@ -127,7 +127,7 @@ const MetroStateLayout = ({ main, tiles }) => {
   );
 };
 
-const MetroPlotCard = ({
+export const MetroPlotCard = ({
   locationData,
   title,
   isSmall = false,
@@ -145,6 +145,12 @@ const MetroPlotCard = ({
   showOtherGroundTruthSeasons = false,
   span = "4wk",
   colorSeed = null,
+  // Optional: a color per model instead of its usual one
+  modelColorFn = null,
+  // Optional: more traces drawn over the forecasts, in data units
+  extraTraces = null,
+  // Optional: the small chart's height in px
+  tileHeight = TILE_PLOT_HEIGHT,
 }) => {
   const groundTruth = locationData?.ground_truth;
   const allForecasts = locationData?.forecasts;
@@ -255,6 +261,7 @@ const MetroPlotCard = ({
     selectedDates,
     selectedModels,
     colorSeed,
+    modelColorFn,
     target: selectedTarget,
     groundTruthLabel: "Ground Truth Data",
     groundTruthValueFormat: `%{y:.${valueDecimals}f}`,
@@ -294,10 +301,19 @@ const MetroPlotCard = ({
     },
   });
 
+  // Extra traces go through the same scale transform as the forecasts
+  const plotData = useMemo(() => {
+    if (!extraTraces?.length) return projectionsData;
+    const extra = manualScaleTransform
+      ? extraTraces.map((t) => ({ ...t, y: t.y.map(manualScaleTransform) }))
+      : extraTraces;
+    return [...projectionsData, ...extra];
+  }, [projectionsData, extraTraces, manualScaleTransform]);
+
   const yAxisRange = useMemo(() => {
     const range = xAxisRange || defRange;
-    return calculateYRange(projectionsData, range);
-  }, [projectionsData, xAxisRange, defRange, calculateYRange]);
+    return calculateYRange(plotData, range);
+  }, [plotData, xAxisRange, defRange, calculateYRange]);
 
   const hasForecasts = hasForecastTraces;
   const base = getBaseChartLayout(colorScheme, { compact: isSmall });
@@ -341,11 +357,11 @@ const MetroPlotCard = ({
       <Plot
         style={{
           width: "100%",
-          height: isSmall ? TILE_PLOT_HEIGHT : MAIN_PLOT_HEIGHT,
+          height: isSmall ? tileHeight : MAIN_PLOT_HEIGHT,
           minHeight: isSmall ? undefined : 340,
           opacity: hasForecasts ? 1 : 0.6,
         }}
-        data={projectionsData}
+        data={plotData}
         layout={{
           ...base,
           // Full size: same frame as the other forecast charts

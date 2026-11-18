@@ -85,6 +85,13 @@ jobs:
           --NHSN \
           --NSSP
 
+    # One small all-locations file for the state summary's comparisons
+    - name: Build state summary snapshot
+      run: |
+        python scripts/build_summary_snapshot.py \
+          --data-path $GITHUB_WORKSPACE/app/public/processed_data \
+          --flu-metrocast-hub-path $GITHUB_WORKSPACE/flu-metrocast
+
     - name: Upload all processed data as a single artifact
       uses: actions/upload-artifact@v4
       with:

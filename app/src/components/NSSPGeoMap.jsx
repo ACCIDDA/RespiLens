@@ -131,7 +131,8 @@ const NSSPGeoMap = ({
       })}
 
       {featureCallouts.map(
-        ({ feature, key, label, originX, originY, x, y }) => {
+        // `color`: an optional fill for the label (white text on it)
+        ({ feature, key, label, color, originX, originY, x, y }) => {
           const featureLabel = getFeatureLabel(feature);
           const isClickable = isFeatureClickable
             ? isFeatureClickable(feature)
@@ -200,8 +201,8 @@ const NSSPGeoMap = ({
                 width={46}
                 height={32}
                 rx={16}
-                fill={fill}
-                stroke={NSSP_MAP_COLORS.outline}
+                fill={color ?? fill}
+                stroke={color ?? NSSP_MAP_COLORS.outline}
                 strokeWidth={1.5}
                 vectorEffect="non-scaling-stroke"
                 style={{ transition: "fill 150ms ease" }}
@@ -211,7 +212,7 @@ const NSSPGeoMap = ({
                 y={y}
                 dy="0.35em"
                 textAnchor="middle"
-                fill="#172033"
+                fill={color ? "#ffffff" : "#172033"}
                 fontSize={15}
                 fontWeight={700}
                 pointerEvents="none"

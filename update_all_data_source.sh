@@ -44,3 +44,8 @@ python scripts/process_RespiLens_data.py \
   --flu-metrocast-hub-path "${SCRIPT_DIR}/flu-metrocast" \
   --NHSN \
   --NSSP
+
+# One small all-locations file for the state summary's comparisons
+python scripts/build_summary_snapshot.py \
+  --data-path "${SCRIPT_DIR}/app/public/processed_data" \
+  --flu-metrocast-hub-path "${SCRIPT_DIR}/flu-metrocast"

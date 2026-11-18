@@ -7,6 +7,8 @@ export const targetDisplayNameMap = {
   "wk inc rsv prop ed visits": "Proportion of ED Visits due to RSV",
   "Flu ED visits pct": "Percent of ED Visits due to Flu",
   "ILI ED visits pct": "Percent of ED Visits due to Influenza-like Illness",
+  "COVID ED visits pct": "Percent of ED Visits due to COVID-19",
+  "RSV ED visits pct": "Percent of ED Visits due to RSV",
   "Flu hosp admits": "Weekly Flu Hospital Admissions",
 };
 
@@ -20,6 +22,8 @@ export const targetYAxisLabelMap = {
   "Proportion of ED Visits due to RSV": "Proportion of ED Visits due to RSV",
   "Percent of ED Visits due to Flu": "% of ED Visits",
   "Percent of ED Visits due to Influenza-like Illness": "% of ED Visits",
+  "Percent of ED Visits due to COVID-19": "% of ED Visits",
+  "Percent of ED Visits due to RSV": "% of ED Visits",
   "Weekly Flu Hospital Admissions": "Flu Hospital Admissions",
 };
 
