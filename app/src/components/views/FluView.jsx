@@ -31,6 +31,7 @@ const FluView = ({
     showLegend,
     showOtherGroundTruthSeasons,
     showHistogram,
+    colorSeed,
   } = useView();
   const histogramVisible =
     viewType === "fludetailed" ||
@@ -52,7 +53,10 @@ const FluView = ({
         if (!forecast) return null;
         const horizon0 = forecast.predictions["0"];
         if (!horizon0) return null;
-        const modelColor = getModelColor(model);
+        const modelColor = getModelColor(model, {
+          shownModels: selectedModels,
+          colorSeed,
+        });
         const orderedData = categoryOrder.map((cat) => ({
           category: cat.replace("_", "<br>"),
           value:
@@ -75,7 +79,7 @@ const FluView = ({
         };
       })
       .filter(Boolean);
-  }, [forecasts, selectedDates, selectedModels, lastSelectedDate]);
+  }, [forecasts, selectedDates, selectedModels, lastSelectedDate, colorSeed]);
 
   const extraTraces = useMemo(() => {
     if (!histogramVisible) return [];
@@ -214,6 +218,7 @@ const FluView = ({
           intervalVisibility={intervalVisibility}
           showLegend={showLegend}
           showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
+          colorSeed={colorSeed}
         />
       </>
     );

@@ -5,12 +5,20 @@ import {
   Checkbox,
   Group,
   Switch,
+  ActionIcon,
+  Tooltip,
 } from "@mantine/core";
+import { IconArrowsShuffle } from "@tabler/icons-react";
 
 const INTERVAL_OPTIONS = [
   { value: "median", label: "Median" },
   { value: "ci50", label: "50% interval" },
   { value: "ci95", label: "95% interval" },
+];
+
+const COLOR_OPTIONS = [
+  { value: "standard", label: "Standard" },
+  { value: "distinct", label: "Distinct" },
 ];
 
 const SCALE_OPTIONS = [
@@ -36,6 +44,8 @@ const ForecastChartControls = ({
   intervalOptions = INTERVAL_OPTIONS,
   showHistogram = false,
   setShowHistogram = null,
+  colorSeed = null,
+  setColorSeed = null,
 }) => {
   const selectedIntervals = intervalOptions
     .filter((option) => intervalVisibility?.[option.value])
@@ -96,6 +106,32 @@ const ForecastChartControls = ({
           offLabel="Off"
         />
       </Group>
+      {typeof setColorSeed === "function" && (
+        <Group align="center" gap="md">
+          <Text size="xs" c="dimmed" style={{ minWidth: 90 }}>
+            Model colors
+          </Text>
+          <SegmentedControl
+            data={COLOR_OPTIONS}
+            value={colorSeed === null ? "standard" : "distinct"}
+            onChange={(value) => setColorSeed(value === "distinct" ? 0 : null)}
+            size="xs"
+            aria-label="Model colors"
+          />
+          {colorSeed !== null && (
+            <Tooltip label="Shuffle the colors" openDelay={300}>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                onClick={() => setColorSeed(colorSeed + 1)}
+                aria-label="Shuffle the colors"
+              >
+                <IconArrowsShuffle size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+        </Group>
+      )}
       {typeof setShowNowcasts === "function" && (
         <Group align="center" gap="md">
           <Text size="xs" c="dimmed" style={{ minWidth: 90 }}>

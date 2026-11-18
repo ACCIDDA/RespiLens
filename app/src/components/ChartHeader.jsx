@@ -65,6 +65,8 @@ const ChartHeader = ({
     setShowHistogram,
     metrocastSpan,
     setMetrocastSpan,
+    colorSeed,
+    setColorSeed,
   } = useView();
 
   const about = useContext(ChartAboutContext);
@@ -183,6 +185,8 @@ const ChartHeader = ({
               setShowHistogram={
                 viewType === "flu_forecasts" ? setShowHistogram : null
               }
+              colorSeed={colorSeed}
+              setColorSeed={!isSurveillance ? setColorSeed : null}
             />
           </Popover.Dropdown>
         </Popover>

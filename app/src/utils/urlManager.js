@@ -54,6 +54,13 @@ export class URLParameterManager {
     if (dataset.hasModelSelector) {
       const models = this.searchParams.get(`${prefix}_models`);
       params.models = models ? models.split(",") : [];
+      // The "Distinct" model colors and which shuffle of them; absent is the standard colors
+      const colors = Number.parseInt(
+        this.searchParams.get(`${prefix}_colors`),
+        10,
+      );
+      params.colorSeed =
+        Number.isInteger(colors) && colors >= 0 ? colors : null;
     }
 
     if (currentView !== "nhsnall") {
@@ -279,6 +286,17 @@ export class URLParameterManager {
         updatedParams.set(`${prefix}_models`, newParams.models.join(","));
       } else {
         updatedParams.delete(`${prefix}_models`);
+      }
+    }
+
+    if (
+      dataset.hasModelSelector &&
+      Object.prototype.hasOwnProperty.call(newParams, "colorSeed")
+    ) {
+      if (Number.isInteger(newParams.colorSeed)) {
+        updatedParams.set(`${prefix}_colors`, String(newParams.colorSeed));
+      } else {
+        updatedParams.delete(`${prefix}_colors`);
       }
     }
 

@@ -151,6 +151,7 @@ const FluPeak = ({
   intervalVisibility = { median: true, ci50: true, ci95: true },
   showLegend = true,
   showOtherGroundTruthSeasons = false,
+  colorSeed = null,
 }) => {
   const { colorScheme } = useMantineColorScheme();
   const groundTruth = data?.ground_truth;
@@ -287,8 +288,10 @@ const FluPeak = ({
         const pointColors = [];
 
         // Base color for this model (Solid, used for Legend)
-        const { color: baseColorHex, marker: modelMarker } =
-          getModelStyle(model);
+        const { color: baseColorHex, marker: modelMarker } = getModelStyle(
+          model,
+          { shownModels: selectedModels, colorSeed },
+        );
 
         datesToCheck.forEach((refDate, index) => {
           const dateData = peaks[refDate];
@@ -563,6 +566,7 @@ const FluPeak = ({
     groundTruth,
     peaks,
     selectedModels,
+    colorSeed,
     selectedDates,
     peakDates,
     showMedian,
@@ -736,6 +740,7 @@ const FluPeak = ({
           setSelectedModels={setSelectedModels}
           activeModels={activePeakModels}
           selectedDates={selectedDates}
+          colorSeed={colorSeed}
           keyboardShortcut
         />
       </Stack>

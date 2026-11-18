@@ -144,6 +144,7 @@ const MetroPlotCard = ({
   showNowcasts = false,
   showOtherGroundTruthSeasons = false,
   span = "4wk",
+  colorSeed = null,
 }) => {
   const groundTruth = locationData?.ground_truth;
   const allForecasts = locationData?.forecasts;
@@ -253,6 +254,7 @@ const MetroPlotCard = ({
     forecasts,
     selectedDates,
     selectedModels,
+    colorSeed,
     target: selectedTarget,
     groundTruthLabel: "Ground Truth Data",
     groundTruthValueFormat: `%{y:.${valueDecimals}f}`,
@@ -433,6 +435,7 @@ const MetroCastView = ({
     showNowcasts,
     showOtherGroundTruthSeasons,
     metrocastSpan,
+    colorSeed,
   } = useView();
   // Kept across locations (the view remounts while one loads); each target
   // has its own window
@@ -550,6 +553,7 @@ const MetroCastView = ({
         showNowcasts={showNowcasts}
         showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
         span={metrocastSpan}
+        colorSeed={colorSeed}
       />
       <Stack gap={2}>
         <ChartCaption forecastNote />
@@ -557,6 +561,7 @@ const MetroCastView = ({
           models={models}
           selectedModels={selectedModels}
           setSelectedModels={setSelectedModels}
+          colorSeed={colorSeed}
           activeModels={activeModels}
           modelTags={modelTags}
           selectedDates={selectedDates}
@@ -596,6 +601,7 @@ const MetroCastView = ({
             showNowcasts={showNowcasts}
             showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
             span={metrocastSpan}
+            colorSeed={colorSeed}
           />
         </UnstyledButton>
       ));
