@@ -171,7 +171,7 @@ const quantile = (prediction, q) => {
 // and its 95% interval
 const forecastTile = (label, model, forecast, latest, unit) => {
   const p = forecast?.predictions?.["1"];
-  const tile = { label: `${label} · next week`, color: colorOf(model) };
+  const tile = { label: `${label}, next week`, color: colorOf(model) };
   if (!p) return { ...tile, detail: "No forecast" };
   const median = quantile(p, 0.5);
   const diff = latest ? median - latest.value : null;
@@ -186,12 +186,12 @@ const forecastTile = (label, model, forecast, latest, unit) => {
           ? `${Math.round(Math.abs(diff / latest.value) * 100)}%`
           : unit.format(Math.abs(diff)),
     },
-    detail: `95%: ${unit.format(quantile(p, 0.025))}–${unit.format(quantile(p, 0.975))} · wk ending ${formatDate(p.date)}`,
+    detail: `95%: ${unit.format(quantile(p, 0.025))}–${unit.format(quantile(p, 0.975))}, wk ending ${formatDate(p.date)}`,
   };
 };
 
 const rateChangeTile = (forecast) => {
-  const label = "Rate change · next week";
+  const label = "Rate change, next week";
   const p = forecast?.predictions?.["1"];
   if (!p) return { label, detail: "No forecast" };
   const best = p.probabilities.indexOf(Math.max(...p.probabilities));
@@ -422,9 +422,11 @@ const Section = ({ title, subtitle, children }) => (
     </Accordion.Control>
     <Accordion.Panel>
       <Stack gap="xs">
-        <Text size="sm" c="dimmed">
-          {subtitle}
-        </Text>
+        {subtitle && (
+          <Text size="sm" c="dimmed">
+            {subtitle}
+          </Text>
+        )}
         {children}
       </Stack>
     </Accordion.Panel>
@@ -469,27 +471,86 @@ const DiseasePanel = ({ section, chartProps, compare }) => {
   const sentences = section.brief.filter(Boolean);
   const subs = section.subLocations;
   const compareTitle = compare?.stateName
-    ? `How ${compare.stateName} compares with other states`
+    ? `Compare ${compare.stateName} with other states`
     : null;
+  const briefTitle = "Compared with last season";
   const subsTitle = "Counties and health districts";
-  // Every section starts open
+  // Every section starts open: other states first, then the charts, then
+  // last season
   const titles = [
-    ...section.charts.map((chart) => chart.title),
     compare?.day && compareTitle,
+    ...section.charts.map((chart) => chart.title),
     subs && subsTitle,
+    sentences.length > 0 && briefTitle,
   ].filter(Boolean);
   return (
-    <Stack gap="md">
-      {sentences.length > 0 && (
-        <Paper
-          withBorder
-          radius="md"
-          p="md"
-          bg="var(--mantine-color-default-hover)"
+    <Accordion
+      multiple
+      defaultValue={titles}
+      variant="separated"
+      chevronPosition="left"
+    >
+      {compare?.day && (
+        <Section
+          title={compareTitle}
+          subtitle="Latest week and the hub ensemble's forecast 2–4 weeks on. Hospital admissions are per 100,000 people."
         >
-          <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={4}>
-            Compared with last season
-          </Text>
+          <StateComparison {...compare} geo={compare.geo.states} />
+        </Section>
+      )}
+      {section.charts.map((chart) => (
+        <Section
+          key={chart.title}
+          title={chart.title}
+          subtitle={chart.subtitle}
+        >
+          <SimpleGrid cols={{ base: 1, xs: chart.tiles.length }} spacing="sm">
+            {chart.tiles.map((tile) => (
+              <StatTile key={tile.label} {...tile} />
+            ))}
+          </SimpleGrid>
+          <SummaryPlot
+            {...chartProps}
+            locationData={chart.data}
+            selectedTarget={chart.target}
+            selectedModels={chart.models}
+            extraTraces={chart.extraTraces}
+            bounds={chart.bounds}
+          />
+        </Section>
+      ))}
+      {subs && (
+        <Section
+          title={subsTitle}
+          subtitle={
+            subs.some((l) => l.models.length)
+              ? "Flu ED visits (%), MetroCast ensembles (4 weeks and full season)."
+              : "Flu ED visits (%). MetroCast has no sub-state forecasts for this date; observed data only."
+          }
+        >
+          {compare?.day && (
+            <DistrictComparison {...compare} geo={compare.geo.counties} />
+          )}
+          {/* At most 3 per row, taller than the MetroCast page's tiles */}
+          <SimpleGrid cols={{ base: 1, xs: 2, md: 3 }} spacing="md">
+            {subs.map((l) => (
+              <Box key={l.key} style={{ minWidth: 0, position: "relative" }}>
+                <SummaryPlot
+                  {...chartProps}
+                  isSmall
+                  tileHeight={220}
+                  title={l.title}
+                  locationData={l.data}
+                  selectedTarget={FLU_ED}
+                  selectedModels={l.models}
+                />
+              </Box>
+            ))}
+          </SimpleGrid>
+        </Section>
+      )}
+      {sentences.length > 0 && (
+        <Section title={briefTitle}>
           <Stack gap={6}>
             {sentences.map((s) => (
               <Text key={s} size="sm">
@@ -497,75 +558,9 @@ const DiseasePanel = ({ section, chartProps, compare }) => {
               </Text>
             ))}
           </Stack>
-        </Paper>
+        </Section>
       )}
-      <Accordion
-        multiple
-        defaultValue={titles}
-        variant="separated"
-        chevronPosition="left"
-      >
-        {section.charts.map((chart) => (
-          <Section
-            key={chart.title}
-            title={chart.title}
-            subtitle={chart.subtitle}
-          >
-            <SimpleGrid cols={{ base: 1, xs: chart.tiles.length }} spacing="sm">
-              {chart.tiles.map((tile) => (
-                <StatTile key={tile.label} {...tile} />
-              ))}
-            </SimpleGrid>
-            <SummaryPlot
-              {...chartProps}
-              locationData={chart.data}
-              selectedTarget={chart.target}
-              selectedModels={chart.models}
-              extraTraces={chart.extraTraces}
-              bounds={chart.bounds}
-            />
-          </Section>
-        ))}
-        {compare?.day && (
-          <Section
-            title={compareTitle}
-            subtitle="Latest week and the hub ensemble's forecast 2–4 weeks on. Hospital admissions are per 100,000 people."
-          >
-            <StateComparison {...compare} geo={compare.geo.states} />
-          </Section>
-        )}
-        {subs && (
-          <Section
-            title={subsTitle}
-            subtitle={
-              subs.some((l) => l.models.length)
-                ? "Flu ED visits (%), MetroCast ensembles (4 weeks and full season)."
-                : "Flu ED visits (%). MetroCast has no sub-state forecasts for this date; observed data only."
-            }
-          >
-            {compare?.day && (
-              <DistrictComparison {...compare} geo={compare.geo.counties} />
-            )}
-            {/* At most 3 per row, taller than the MetroCast page's tiles */}
-            <SimpleGrid cols={{ base: 1, xs: 2, md: 3 }} spacing="md">
-              {subs.map((l) => (
-                <Box key={l.key} style={{ minWidth: 0, position: "relative" }}>
-                  <SummaryPlot
-                    {...chartProps}
-                    isSmall
-                    tileHeight={220}
-                    title={l.title}
-                    locationData={l.data}
-                    selectedTarget={FLU_ED}
-                    selectedModels={l.models}
-                  />
-                </Box>
-              ))}
-            </SimpleGrid>
-          </Section>
-        )}
-      </Accordion>
-    </Stack>
+    </Accordion>
   );
 };
 
