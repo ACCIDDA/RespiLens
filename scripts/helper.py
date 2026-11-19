@@ -19,7 +19,71 @@ def clean_nan_values(df: pd.DataFrame) -> pd.DataFrame:
     return df.replace({np.nan: None})
 
 
-def hubverse_df_preprocessor(df: pd.DataFrame, filter_quantiles: bool = True, filter_nowcasts: bool = True) -> pd.DataFrame:
+def _task_values(task_ids: dict, key: str) -> list:
+    spec = task_ids.get(key, {})
+    return (spec.get('required') or []) + (spec.get('optional') or [])
+
+
+def _select_forecast_outputs(df: pd.DataFrame, tasks: dict | None) -> pd.DataFrame:
+    """Apply round/target requirements before choosing optional outputs per model."""
+    is_quantile = df['output_type'] == 'quantile'
+    is_sample = df['output_type'] == 'sample'
+    is_distribution = is_quantile | is_sample
+    if not is_distribution.any():
+        return df
+
+    matched = pd.Series(False, index=df.index)
+    listed = matched.copy()
+    requires_quantile = matched.copy()
+    requires_sample = matched.copy()
+
+    for round_config in (tasks or {}).get('rounds', []):
+        round_key = round_config.get('round_id')
+        for task in round_config['model_tasks']:
+            task_ids = task['task_ids']
+            in_scope = is_distribution.copy()
+            targets = _task_values(task_ids, 'target')
+            if targets:
+                in_scope &= df['target'].isin(targets)
+            if round_config.get('round_id_from_variable') and round_key in df.columns:
+                round_values = _task_values(task_ids, round_key)
+                if round_values:
+                    round_ids = df[round_key]
+                    if round_key == 'reference_date':
+                        # HubDataPy returns Python dates while the config uses ISO strings.
+                        dates = pd.to_datetime(round_values)
+                        if pd.api.types.is_datetime64_any_dtype(round_ids):
+                            round_values = dates
+                        else:
+                            round_values += dates.date.tolist()
+                    in_scope &= round_ids.isin(round_values)
+            elif 'round_id' in df.columns and round_key is not None:
+                in_scope &= df['round_id'].eq(round_key)
+
+            outputs = task['output_type']
+            matched |= in_scope
+            listed |= in_scope & df['output_type'].isin(outputs)
+            if (outputs.get('quantile') or {}).get('is_required'):
+                requires_quantile |= in_scope
+            if (outputs.get('sample') or {}).get('is_required'):
+                requires_sample |= in_scope
+
+    # Prefer quantiles if a task requires both representations.
+    requires_sample &= ~requires_quantile
+    eligible = (~matched | listed) & ~(requires_quantile & is_sample) & ~(requires_sample & is_quantile)
+    if (eligible & is_sample & ~requires_sample).any():
+        quantile_models = df.loc[eligible & is_quantile, 'model_id'].unique()
+        eligible &= ~is_sample | requires_sample | ~df['model_id'].isin(quantile_models)
+    return df[eligible] if not eligible.all() else df
+
+
+def hubverse_df_preprocessor(
+    df: pd.DataFrame,
+    filter_quantiles: bool = True,
+    filter_nowcasts: bool = True,
+    *,
+    tasks: dict | None = None,
+) -> pd.DataFrame:
     """
     Do a number of pre-processing tasks that make a hubverse df ready to pass through a processing class.
 
@@ -27,6 +91,7 @@ def hubverse_df_preprocessor(df: pd.DataFrame, filter_quantiles: bool = True, fi
         df: Hubverse data as pd.DataFrame
         filter_quantiles: If True, filter to specific quantile/pmf values only
         filter_nowcasts: If True, filter out all negative horizons (including nowcasts)
+        tasks: Parsed hub tasks.json. Unmatched rows use the optional-output policy.
 
     Returns:
         A df with...
@@ -34,9 +99,9 @@ def hubverse_df_preprocessor(df: pd.DataFrame, filter_quantiles: bool = True, fi
             - horizon NaNs dropped,
             - negative horizons (including nowcasts) optionally filtered out,
             - only some `output_type_id` values kept (if filter_quantiles=True),
-            - all `output_type` == sample removed.
+            - eligible sample output summarized as quantiles.
     """
-    df = df.copy()
+    df = samples_to_quantiles(_select_forecast_outputs(df, tasks)).copy()
     # Set horizon for flu 'peak' targets = 50 (placeholder so it doesn't get filtered out)
     peak_targets = {'peak inc flu hosp', 'peak week inc flu hosp'}
     if 'target' in df.columns:
@@ -50,8 +115,6 @@ def hubverse_df_preprocessor(df: pd.DataFrame, filter_quantiles: bool = True, fi
     # Optionally filter out all negative horizons (including nowcasts)
     if filter_nowcasts:
         df = df[df['horizon'] >= 0]
-    # Get rid of all output_type == 'sample'
-    df = df[df['output_type'] != 'sample']
     if filter_quantiles:
         # Filter `output_type_id` values
         categorical_ids = ['decrease', 'increase', 'large_decrease', 'large_increase', 'stable'] 
@@ -90,21 +153,23 @@ def samples_to_quantiles(df: pd.DataFrame, quantile_levels: tuple = (0.025, 0.25
     if not is_sample.any():
         return df
     samples = df[is_sample].copy()
+    if 'horizon' not in samples:
+        samples['horizon'] = np.nan
     missing_horizon = samples['horizon'].isna()
     if missing_horizon.any():
         weeks = (pd.to_datetime(samples.loc[missing_horizon, 'target_end_date'])
                  - pd.to_datetime(samples.loc[missing_horizon, 'reference_date'])).dt.days // 7
         samples.loc[missing_horizon, 'horizon'] = weeks
-    task_cols = [col for col in df.columns if col not in ('output_type', 'output_type_id', 'value')]
+    task_cols = [col for col in samples.columns if col not in ('output_type', 'output_type_id', 'value')]
     quantiles = (
-        samples.groupby(task_cols, dropna=False)['value']
+        samples.groupby(task_cols, dropna=False, observed=True)['value']
         .quantile(list(quantile_levels))
         .rename('value')
         .reset_index()
         .rename(columns={f'level_{len(task_cols)}': 'output_type_id'})
     )
     quantiles['output_type'] = 'quantile'
-    return pd.concat([df[~is_sample], quantiles[df.columns]], ignore_index=True)
+    return pd.concat([df[~is_sample], quantiles[samples.columns]], ignore_index=True)
 
 
 def get_location_info(
