@@ -6,7 +6,8 @@ from hub_dataset_processor import HubDataProcessorBase, HubDatasetConfig
 
 
 class FluMetrocastDataProcessor(HubDataProcessorBase):
-    def __init__(self, data: pd.DataFrame, locations_data: pd.DataFrame, target_data: pd.DataFrame):
+    def __init__(self, data: pd.DataFrame, locations_data: pd.DataFrame, target_data: pd.DataFrame,
+                 peaks: dict | None = None):
         config = HubDatasetConfig(
             file_suffix="flu_metrocast",
             dataset_label="flu metrocast forecasts",
@@ -28,3 +29,8 @@ class FluMetrocastDataProcessor(HubDataProcessorBase):
             config=config,
             is_metro_cast=True
         )
+        # Peak forecasts of the long-term trajectories (see helper.samples_to_peaks), by location
+        for location, location_peaks in (peaks or {}).items():
+            payload = self.output_dict.get(f"{location}_{config.file_suffix}.json")
+            if payload is not None and location_peaks:
+                payload["peaks"] = location_peaks

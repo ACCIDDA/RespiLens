@@ -91,6 +91,7 @@ export class URLParameterManager {
     const otherGtParam = this.searchParams.get("other_gt");
     const histogramParam = this.searchParams.get("histogram");
     const spanParam = this.searchParams.get("span");
+    const quantilesParam = this.searchParams.get("quantiles");
 
     const chartScale = normalizeChartScale(scaleParam || DEFAULT_CHART_SCALE);
     let intervalVisibility = { ...DEFAULT_INTERVAL_VISIBILITY };
@@ -133,6 +134,11 @@ export class URLParameterManager {
       showOtherGroundTruthSeasons,
       showHistogram: histogramParam === "1" || histogramParam === "true",
       metrocastSpan: spanParam === "season" ? "season" : DEFAULT_METROCAST_SPAN,
+      // Full season: long-term models show their weekly quantiles beside
+      // their peak forecast, unless hidden to see the peak alone
+      showLongTermQuantiles: !(
+        quantilesParam === "0" || quantilesParam === "false"
+      ),
     };
   }
 
@@ -168,6 +174,7 @@ export class URLParameterManager {
     showOtherGroundTruthSeasons,
     showHistogram,
     metrocastSpan,
+    showLongTermQuantiles,
   }) {
     const updatedParams = new URLSearchParams(this.searchParams);
 
@@ -224,6 +231,14 @@ export class URLParameterManager {
         updatedParams.set("histogram", "1");
       } else {
         updatedParams.delete("histogram");
+      }
+    }
+
+    if (typeof showLongTermQuantiles === "boolean") {
+      if (showLongTermQuantiles) {
+        updatedParams.delete("quantiles");
+      } else {
+        updatedParams.set("quantiles", "0");
       }
     }
 

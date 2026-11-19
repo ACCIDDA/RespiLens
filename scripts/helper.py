@@ -107,6 +107,118 @@ def samples_to_quantiles(df: pd.DataFrame, quantile_levels: tuple = (0.025, 0.25
     return pd.concat([df[~is_sample], quantiles[df.columns]], ignore_index=True)
 
 
+def samples_to_peaks(
+    df: pd.DataFrame,
+    target_data: pd.DataFrame | None = None,
+    quantile_levels: tuple = (0.025, 0.25, 0.5, 0.75, 0.975),
+    short_term_max_horizon: int = 3,
+) -> dict:
+    """
+    Peak forecasts of long-term sample trajectories: the size and week of each sample season's
+    highest value, summarized over the samples (as the narrative does). This is the forecast of the
+    peak itself, which runs higher than the high point of the median line.
+
+    Each sample season is the whole season: the weeks observed before the forecast (from
+    `target_data`, as available on the forecast date) followed by the sample's own weeks. A season
+    that already peaked higher than a sample ever goes peaks in its observed week.
+
+    Only trajectories reaching past `short_term_max_horizon` weeks count (a 4-week forecast has no
+    peak to speak of), and only samples covering every week of their trajectory.
+
+    Returns:
+        {location: {reference_date: {f"peak {target}": {model: quantiles of the peak size},
+                                     f"peak week {target}": {model: pmf over peak weeks}}}},
+        in the shape of FluSight's `peaks` key.
+    """
+    samples = df[(df['output_type'] == 'sample') & df['value'].notna()]
+    if samples.empty:
+        return {}
+    keys = ['model_id', 'reference_date', 'location', 'target']
+    samples = samples[keys + ['output_type_id', 'target_end_date', 'value']].copy()
+    for col in ('reference_date', 'target_end_date'):
+        samples[col] = pd.to_datetime(samples[col]).dt.strftime('%Y-%m-%d')
+    weeks_ahead = (pd.to_datetime(samples['target_end_date']) - pd.to_datetime(samples['reference_date'])).dt.days // 7
+    samples = samples[weeks_ahead.groupby([samples[k] for k in keys]).transform('max') > short_term_max_horizon]
+    if samples.empty:
+        return {}
+    # Whole sample seasons only
+    per_sample = samples.groupby(keys + ['output_type_id'])['target_end_date'].transform('size')
+    samples = samples[per_sample == per_sample.groupby([samples[k] for k in keys]).transform('max')]
+    # Each sample's first highest week
+    samples = samples.sort_values('target_end_date')
+    peaks_df = samples.loc[samples.groupby(keys + ['output_type_id'], sort=False)['value'].idxmax()]
+    if target_data is not None and not target_data.empty:
+        peaks_df = _with_observed_peaks(peaks_df, samples, target_data, keys)
+
+    peaks: dict = {}
+    for (model, reference_date, location, target), group in peaks_df.groupby(keys):
+        by_date = peaks.setdefault(str(location), {}).setdefault(reference_date, {})
+        sizes = group['value']
+        by_date.setdefault(f"peak {target}", {})[str(model)] = {
+            "type": "quantile",
+            "predictions": {
+                "quantiles": list(quantile_levels),
+                "values": [round(float(sizes.quantile(level)), 4) for level in quantile_levels],
+            },
+        }
+        weeks = group['target_end_date'].value_counts(normalize=True).sort_index()
+        by_date.setdefault(f"peak week {target}", {})[str(model)] = {
+            "type": "pmf",
+            "predictions": {
+                "peak week": list(weeks.index),
+                "probabilities": [round(float(p), 4) for p in weeks.values],
+            },
+        }
+    return peaks
+
+
+def _observed_season_peaks(target_data: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+    """
+    For each forecast (reference_date, location, target, first_week): the season's highest observed
+    week before `first_week`, from the data as of the forecast date (the latest version if none is
+    that old). Seasons start August 1. Columns: reference_date, location, target, obs_week, obs_value.
+    """
+    truth = target_data[['location', 'target', 'target_end_date', 'observation']].copy()
+    truth['as_of'] = pd.to_datetime(target_data['as_of']) if 'as_of' in target_data else pd.NaT
+    truth['target_end_date'] = pd.to_datetime(truth['target_end_date']).dt.strftime('%Y-%m-%d')
+    truth['observation'] = pd.to_numeric(truth['observation'], errors='coerce')
+    truth = truth[truth['observation'].notna()]
+    rows = []
+    for (location, target), series in truth.groupby(['location', 'target']):
+        mine = forecasts[(forecasts['location'] == location) & (forecasts['target'] == target)]
+        for reference_date, first_week in mine[['reference_date', 'first_week']].drop_duplicates().itertuples(index=False):
+            ref = pd.Timestamp(reference_date)
+            versions = series[series['as_of'] <= ref] if series['as_of'].notna().any() else series
+            if versions.empty:
+                versions = series
+            if versions['as_of'].notna().any():
+                versions = versions[versions['as_of'] == versions['as_of'].max()]
+            season_start = f"{ref.year if ref.month >= 8 else ref.year - 1}-08-01"
+            seen = versions[(versions['target_end_date'] >= season_start)
+                            & (versions['target_end_date'] < first_week)].sort_values('target_end_date')
+            if seen.empty:
+                continue
+            top = seen.loc[seen['observation'].idxmax()]
+            rows.append((reference_date, location, target, top['target_end_date'], float(top['observation'])))
+    return pd.DataFrame(rows, columns=['reference_date', 'location', 'target', 'obs_week', 'obs_value'])
+
+
+def _with_observed_peaks(peaks_df: pd.DataFrame, samples: pd.DataFrame, target_data: pd.DataFrame,
+                         keys: list) -> pd.DataFrame:
+    """Each sample's peak over the whole season: its own, or the observed one if that is as high."""
+    forecasts = (samples.groupby(keys)['target_end_date'].min().rename('first_week').reset_index()
+                 [['reference_date', 'location', 'target', 'first_week']].drop_duplicates())
+    observed = _observed_season_peaks(target_data, forecasts)
+    if observed.empty:
+        return peaks_df
+    merged = peaks_df.merge(observed, on=['reference_date', 'location', 'target'], how='left')
+    # Ties go to the observed week, the earlier one
+    use_observed = merged['obs_value'].notna() & (merged['obs_value'] >= merged['value'])
+    merged.loc[use_observed, 'value'] = merged.loc[use_observed, 'obs_value']
+    merged.loc[use_observed, 'target_end_date'] = merged.loc[use_observed, 'obs_week']
+    return merged.drop(columns=['obs_week', 'obs_value'])
+
+
 def get_location_info(
         location_data: pd.DataFrame, 
         location: str, 

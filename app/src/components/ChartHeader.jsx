@@ -8,6 +8,7 @@ import {
   Tooltip,
   ActionIcon,
   SegmentedControl,
+  Switch,
 } from "@mantine/core";
 import {
   IconAdjustmentsHorizontal,
@@ -65,6 +66,8 @@ const ChartHeader = ({
     setShowHistogram,
     metrocastSpan,
     setMetrocastSpan,
+    showLongTermQuantiles,
+    setShowLongTermQuantiles,
     colorSeed,
     setColorSeed,
   } = useView();
@@ -147,6 +150,22 @@ const ChartHeader = ({
                 { value: "season", label: "Full season" },
               ]}
               aria-label="Forecast span"
+            />
+          </Tooltip>
+        )}
+        {viewType === "metrocast_forecasts" && metrocastSpan === "season" && (
+          <Tooltip
+            label="Long-term models show their weekly quantiles and their peak forecast. Hide the quantiles to see the peak alone."
+            openDelay={300}
+          >
+            <Switch
+              size="xs"
+              mr={10}
+              label="Quantiles"
+              checked={showLongTermQuantiles}
+              onChange={(e) =>
+                setShowLongTermQuantiles(e.currentTarget.checked)
+              }
             />
           </Tooltip>
         )}

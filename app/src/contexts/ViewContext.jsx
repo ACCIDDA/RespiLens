@@ -418,6 +418,11 @@ export const ViewProvider = ({ children }) => {
   const [showHistogram, setShowHistogram] = useState(
     () => urlManager.getAdvancedParams().showHistogram,
   );
+  // MetroCast full season: the long-term models' weekly quantiles beside
+  // their peak forecasts (shown unless hidden)
+  const [showLongTermQuantiles, setShowLongTermQuantiles] = useState(
+    () => urlManager.getAdvancedParams().showLongTermQuantiles,
+  );
 
   const {
     data,
@@ -892,6 +897,7 @@ export const ViewProvider = ({ children }) => {
       showOtherGroundTruthSeasons: urlShowOtherGroundTruthSeasons,
       showHistogram: urlShowHistogram,
       metrocastSpan: urlMetrocastSpan,
+      showLongTermQuantiles: urlShowLongTermQuantiles,
     } = urlManager.getAdvancedParams();
 
     if (isSurveillanceView && urlShowOtherGroundTruthSeasons) {
@@ -925,6 +931,9 @@ export const ViewProvider = ({ children }) => {
     if (urlMetrocastSpan !== metrocastSpan) {
       setMetrocastSpan(urlMetrocastSpan);
     }
+    if (urlShowLongTermQuantiles !== showLongTermQuantiles) {
+      setShowLongTermQuantiles(urlShowLongTermQuantiles);
+    }
   }, [
     searchParams,
     location.pathname,
@@ -938,6 +947,7 @@ export const ViewProvider = ({ children }) => {
     showOtherGroundTruthSeasons,
     showHistogram,
     metrocastSpan,
+    showLongTermQuantiles,
   ]);
 
   const setChartScaleWithUrl = useCallback(
@@ -1000,6 +1010,16 @@ export const ViewProvider = ({ children }) => {
       setShowHistogram(nextValue);
       if (isForecastPage) {
         urlManager.updateAdvancedParams({ showHistogram: nextValue });
+      }
+    },
+    [urlManager, isForecastPage],
+  );
+
+  const setShowLongTermQuantilesWithUrl = useCallback(
+    (nextValue) => {
+      setShowLongTermQuantiles(nextValue);
+      if (isForecastPage) {
+        urlManager.updateAdvancedParams({ showLongTermQuantiles: nextValue });
       }
     },
     [urlManager, isForecastPage],
@@ -1105,6 +1125,8 @@ export const ViewProvider = ({ children }) => {
     setShowHistogram: setShowHistogramWithUrl,
     metrocastSpan,
     setMetrocastSpan: setMetrocastSpanWithUrl,
+    showLongTermQuantiles,
+    setShowLongTermQuantiles: setShowLongTermQuantilesWithUrl,
     // Kept in the link, per hub: switching hub goes back to the standard colors
     colorSeed:
       urlManager.getDatasetParams(urlManager.getDatasetFromView(viewType))

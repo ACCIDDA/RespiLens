@@ -7,6 +7,9 @@ import { hexToRgba } from "./modelColorUtils";
  * median peak size in the median peak week, with whiskers for the 50% and 95%
  * intervals of both. Used by the peak view and the state summary, which adds
  * them to its admissions chart (`nameSuffix` keeps them apart in its legend).
+ * MetroCast passes its own targets (peaks computed from the long-term models'
+ * sample seasons), puts the peaks in each model's own legend entry
+ * (`showLegendEntry: false`), and draws them smaller on its city tiles.
  */
 export const buildPeakForecastTraces = ({
   peaks,
@@ -18,6 +21,13 @@ export const buildPeakForecastTraces = ({
   show50 = true,
   show95 = true,
   nameSuffix = "",
+  sizeTarget = "peak inc flu hosp",
+  weekTarget = "peak week inc flu hosp",
+  sizeLabel = "Peak hospitalization",
+  formatValue = (value) => Math.round(value).toLocaleString(),
+  modelColorFn = null,
+  showLegendEntry = true,
+  compact = false,
 }) => {
   const traces = [];
   if (!peaks || !selectedModels?.length) return traces;
@@ -33,16 +43,20 @@ export const buildPeakForecastTraces = ({
     const pointColors = [];
 
     // Base color for this model (Solid, used for Legend)
-    const { color: baseColorHex, marker: modelMarker } = getModelStyle(model, {
+    const style = getModelStyle(model, {
       shownModels: selectedModels,
       colorSeed,
     });
+    const baseColorHex = modelColorFn ? modelColorFn(model) : style.color;
+    const modelMarker = style.marker;
+    const capSize = compact ? 6 : 10;
+    const width50 = compact ? 2.5 : 4;
 
     datesToCheck.forEach((refDate, index) => {
       const dateData = peaks[refDate];
       if (!dateData) return;
 
-      const intensityData = dateData["peak inc flu hosp"]?.[model];
+      const intensityData = dateData[sizeTarget]?.[model];
       if (!intensityData || !intensityData.predictions) return;
 
       // extract confidence intervals
@@ -60,7 +74,7 @@ export const buildPeakForecastTraces = ({
 
       if (medianVal === null) return;
 
-      const timingData = dateData["peak week inc flu hosp"]?.[model];
+      const timingData = dateData[weekTarget]?.[model];
       if (!timingData || !timingData.predictions) return;
 
       const tPreds = timingData.predictions;
@@ -128,7 +142,7 @@ export const buildPeakForecastTraces = ({
             marker: {
               symbol: "line-ew",
               color: dynamicColor,
-              size: 10,
+              size: capSize,
               line: {
                 width: 1,
                 color: dynamicColor,
@@ -148,7 +162,7 @@ export const buildPeakForecastTraces = ({
             mode: "lines",
             line: {
               color: dynamicColor,
-              width: 4,
+              width: width50,
               dash: "6px, 3px",
             },
             legendgroup: model + nameSuffix,
@@ -171,7 +185,7 @@ export const buildPeakForecastTraces = ({
             marker: {
               symbol: "line-ns",
               color: dynamicColor,
-              size: 10,
+              size: capSize,
               line: { width: 1, color: dynamicColor },
             },
             legendgroup: model + nameSuffix,
@@ -188,7 +202,7 @@ export const buildPeakForecastTraces = ({
             mode: "lines",
             line: {
               color: dynamicColor,
-              width: 4,
+              width: width50,
               dash: "6px, 3px",
             },
             legendgroup: model + nameSuffix,
@@ -205,9 +219,9 @@ export const buildPeakForecastTraces = ({
 
       const timing50 = `${lowDate50} - ${highDate50}`;
       const timing95 = `${lowDate95} - ${highDate95}`;
-      const formattedMedian = Math.round(medianVal).toLocaleString();
-      const formatted50 = `${Math.round(low50).toLocaleString()} - ${Math.round(high50).toLocaleString()}`;
-      const formatted95 = `${Math.round(low95).toLocaleString()} - ${Math.round(high95).toLocaleString()}`;
+      const formattedMedian = formatValue(medianVal);
+      const formatted50 = `${formatValue(low50)} - ${formatValue(high50)}`;
+      const formatted95 = `${formatValue(low95)} - ${formatValue(high95)}`;
 
       const timing50Row = show50 ? `50% CI: [${timing50}]<br>` : "";
       const timing95Row = show95 ? `95% CI: [${timing95}]<br>` : "";
@@ -221,7 +235,7 @@ export const buildPeakForecastTraces = ({
           timing50Row +
           timing95Row +
           `<span style="border-bottom: 1px solid #ccc; display: block; margin: 5px 0;"></span>` +
-          `<b>Peak hospitalization:</b><br>` +
+          `<b>${sizeLabel}:</b><br>` +
           `Median: <b>${formattedMedian}</b><br>` +
           burden50Row +
           burden95Row +
@@ -239,7 +253,7 @@ export const buildPeakForecastTraces = ({
         mode: "markers",
         marker: {
           color: pointColors,
-          size: 12,
+          size: compact ? 7 : 12,
           symbol: modelMarker,
           line: { width: 1, color: "white" },
         },
@@ -254,6 +268,7 @@ export const buildPeakForecastTraces = ({
       });
 
       // dummy legend
+      if (!showLegendEntry) return;
       traces.push({
         x: [null],
         y: [null],

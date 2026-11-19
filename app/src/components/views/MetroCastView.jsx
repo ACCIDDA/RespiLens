@@ -48,6 +48,7 @@ import {
 } from "../../utils/scaleUtils";
 import { copyRange, getRelayoutXRange } from "../../utils/plotRange";
 import ChartCaption from "../ChartCaption";
+import { buildPeakForecastTraces } from "../../utils/peakForecastTraces";
 
 const METRO_STATE_MAP = {
   California: "CA",
@@ -153,6 +154,12 @@ export const MetroPlotCard = ({
   tileHeight = TILE_PLOT_HEIGHT,
   // Optional: the legend name of the observed series
   groundTruthLabel = "Ground Truth Data",
+  // Long-term models' peak forecasts (size and week, from their sample
+  // seasons); on by default over the full season
+  showPeaks = span === "season",
+  // With peaks shown, the weekly quantiles of the models that have one (off:
+  // the peak alone)
+  showLongTermQuantiles = true,
 }) => {
   const groundTruth = locationData?.ground_truth;
   const allForecasts = locationData?.forecasts;
@@ -179,7 +186,44 @@ export const MetroPlotCard = ({
     return trimmed;
   }, [allForecasts, span, selectedDates, selectedTarget]);
 
-  // Last plotted forecast date, so the full season window reaches it
+  // Models with a peak forecast on the selected dates: by default they show
+  // only that, their weekly quantiles on request
+  const peakOnlyModels = useMemo(() => {
+    const models = new Set();
+    if (!showPeaks || showLongTermQuantiles || !locationData?.peaks)
+      return models;
+    selectedDates.forEach((date) => {
+      Object.keys(
+        locationData.peaks[date]?.[`peak ${selectedTarget}`] || {},
+      ).forEach((model) => models.add(model));
+    });
+    return models;
+  }, [
+    showPeaks,
+    showLongTermQuantiles,
+    locationData?.peaks,
+    selectedDates,
+    selectedTarget,
+  ]);
+
+  const drawnForecasts = useMemo(() => {
+    if (!peakOnlyModels.size || !forecasts) return forecasts;
+    const kept = {};
+    Object.entries(forecasts).forEach(([date, byTarget]) => {
+      const models = byTarget?.[selectedTarget];
+      if (!models) return;
+      kept[date] = {
+        [selectedTarget]: Object.fromEntries(
+          Object.entries(models).filter(([m]) => !peakOnlyModels.has(m)),
+        ),
+      };
+    });
+    return kept;
+  }, [forecasts, peakOnlyModels, selectedTarget]);
+
+  // Last forecast week, so the full season window reaches it. Taken from
+  // every forecast, drawn or peak only, so all charts share the season's
+  // window (the city tiles stay comparable)
   const lastForecastDate = useMemo(() => {
     if (span !== "season" || !forecasts) return null;
     let last = null;
@@ -259,7 +303,7 @@ export const MetroPlotCard = ({
     hasForecastTraces,
   } = useQuantileForecastTraces({
     groundTruth,
-    forecasts,
+    forecasts: drawnForecasts,
     selectedDates,
     selectedModels,
     colorSeed,
@@ -303,21 +347,62 @@ export const MetroPlotCard = ({
     },
   });
 
+  // The peak forecast of each long-term model: a marker at the median peak
+  // size in the median peak week, whiskers for their 50% and 95% intervals.
+  // Taken over whole sample seasons, so it sits above the median line's high
+  // point (the median of each week is not the median of the peaks).
+  const peakTraces = useMemo(() => {
+    if (!showPeaks || !locationData?.peaks) return [];
+    return buildPeakForecastTraces({
+      peaks: locationData.peaks,
+      selectedModels,
+      selectedDates,
+      colorSeed,
+      modelColorFn,
+      showMedian,
+      show50,
+      show95,
+      sizeTarget: `peak ${selectedTarget}`,
+      weekTarget: `peak week ${selectedTarget}`,
+      sizeLabel: "Peak size",
+      formatValue: (value) => `${value.toFixed(valueDecimals)}${valueSuffix}`,
+      // Its own legend entry when the model's weekly quantiles are hidden
+      showLegendEntry: peakOnlyModels.size > 0,
+      compact: isSmall,
+    });
+  }, [
+    showPeaks,
+    locationData?.peaks,
+    selectedModels,
+    selectedDates,
+    colorSeed,
+    modelColorFn,
+    showMedian,
+    show50,
+    show95,
+    selectedTarget,
+    valueDecimals,
+    valueSuffix,
+    isSmall,
+    peakOnlyModels,
+  ]);
+
   // Extra traces go through the same scale transform as the forecasts
   const plotData = useMemo(() => {
-    if (!extraTraces?.length) return projectionsData;
+    const added = [...peakTraces, ...(extraTraces || [])];
+    if (!added.length) return projectionsData;
     const extra = manualScaleTransform
-      ? extraTraces.map((t) => ({ ...t, y: t.y.map(manualScaleTransform) }))
-      : extraTraces;
+      ? added.map((t) => ({ ...t, y: t.y.map(manualScaleTransform) }))
+      : added;
     return [...projectionsData, ...extra];
-  }, [projectionsData, extraTraces, manualScaleTransform]);
+  }, [projectionsData, peakTraces, extraTraces, manualScaleTransform]);
 
   const yAxisRange = useMemo(() => {
     const range = xAxisRange || defRange;
     return calculateYRange(plotData, range);
   }, [plotData, xAxisRange, defRange, calculateYRange]);
 
-  const hasForecasts = hasForecastTraces;
+  const hasForecasts = hasForecastTraces || peakTraces.length > 0;
   const base = getBaseChartLayout(colorScheme, { compact: isSmall });
   const isTransformedScale =
     normalizedChartScale === "sqrt" || normalizedChartScale === "log2";
@@ -453,6 +538,7 @@ const MetroCastView = ({
     showNowcasts,
     showOtherGroundTruthSeasons,
     metrocastSpan,
+    showLongTermQuantiles,
     colorSeed,
   } = useView();
   // Kept across locations (the view remounts while one loads); each target
@@ -571,6 +657,7 @@ const MetroCastView = ({
         showNowcasts={showNowcasts}
         showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
         span={metrocastSpan}
+        showLongTermQuantiles={showLongTermQuantiles}
         colorSeed={colorSeed}
       />
       <Stack gap={2}>
@@ -619,6 +706,7 @@ const MetroCastView = ({
             showNowcasts={showNowcasts}
             showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
             span={metrocastSpan}
+            showLongTermQuantiles={showLongTermQuantiles}
             colorSeed={colorSeed}
           />
         </UnstyledButton>
