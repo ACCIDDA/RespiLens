@@ -165,8 +165,9 @@ def main():
         flu_metrocast_hub_conn = connect_hub(args.flu_metrocast_hub_path)
         logger.info("Success ✅")
         logger.info("Collecting data from flu metrocast repo...")
+        flu_metrocast_raw_df = flu_metrocast_hub_conn.to_table().to_pandas()
         flu_metrocast_hubverse_df = clean_nan_values(hubverse_df_preprocessor(
-            flu_metrocast_hub_conn.to_table().to_pandas(), filter_nowcasts=False, tasks=flu_metrocast_hub_conn.tasks
+            flu_metrocast_raw_df, filter_nowcasts=False, tasks=flu_metrocast_hub_conn.tasks
         ))
         flu_metrocast_locations_data = clean_nan_values(pd.read_csv(Path(args.flu_metrocast_hub_path) / 'auxiliary-data/locations.csv')) # DEP: metrocast still pulls hub locations.csv
         flu_metrocast_target_data = clean_nan_values(connect_target_data(hub_path=args.flu_metrocast_hub_path, target_type=TargetType.TIME_SERIES).to_table().to_pandas())
@@ -175,7 +176,8 @@ def main():
         flu_metrocast_processor_object = FluMetrocastDataProcessor(
             data=flu_metrocast_hubverse_df,
             locations_data=flu_metrocast_locations_data,
-            target_data=flu_metrocast_target_data
+            target_data=flu_metrocast_target_data,
+            sample_rows=flu_metrocast_raw_df.loc[flu_metrocast_raw_df['output_type'] == 'sample'],
         )
         # Iteratively save output files
         logger.info("Saving flu metrocast JSON files...")
@@ -185,7 +187,8 @@ def main():
                 output_path=args.output_path,
                 output_filename=filename,
                 file_contents=contents,
-                overwrite=True
+                overwrite=True,
+                indent=None if 'sample_trajectories' in contents else 4,
             )
         logger.info("Fetching documents for Forecast Checker...")
         forecastchecker_fetch(hub_path=args.flu_metrocast_hub_path, folder_name="flumetrocast", output_path=args.output_path)

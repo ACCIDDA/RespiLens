@@ -192,6 +192,47 @@ def test_required_output_follows_the_round_and_target(date_format):
     assert set(processed["horizon"]) == {0}
 
 
+def test_metrocast_exports_complete_deterministic_sample_trajectories():
+    reference_date = datetime.date(2026, 10, 31)
+    target = "Flu ED visits pct"
+    dates = [reference_date, reference_date + datetime.timedelta(weeks=1)]
+    samples = pd.DataFrame([
+        {
+            "location": "denver", "reference_date": reference_date,
+            "target": target, "model_id": model, "target_end_date": dates[week],
+            "horizon": None, "output_type": "sample", "output_type_id": f"S{sample}",
+            "value": offset + sample + week * 0.25,
+        }
+        for model, offset, count in [("long", 0, 40), ("short", 100, 2)]
+        for sample in range(count)
+        for week in range(2)
+        if (model, sample, week) != ("long", 0, 1)
+    ])
+    forecasts = hubverse_df_preprocessor(samples, filter_nowcasts=False)
+    locations = pd.DataFrame([{
+        "location": "denver", "original_location_code": "688",
+        "location_name": "Denver, CO", "population": 2973329,
+    }])
+    truth = pd.DataFrame([{
+        "location": "denver", "target": target, "as_of": dates[1],
+        "target_end_date": dates[0], "observation": 40,
+    }])
+    payload = FluMetrocastDataProcessor(forecasts, locations, truth, samples).output_dict["denver_flu_metrocast.json"]
+    shuffled = samples.sample(frac=1, random_state=7)
+    repeated = FluMetrocastDataProcessor(forecasts, locations, truth, shuffled).output_dict["denver_flu_metrocast.json"]
+
+    overlay = payload["sample_trajectories"]
+    assert overlay == repeated["sample_trajectories"]
+    models = overlay[reference_date.isoformat()][target]
+    assert models["long"]["dates"] == [date.isoformat() for date in dates]
+    paths = models["long"]["samples"]
+    assert len({tuple(path) for path in paths}) == len(paths) == 30
+    assert all(1 <= start < 40 and end == start + 0.25 for start, end in paths)
+    assert models["short"]["samples"] == [[100, 100.25], [101, 101.25]]
+    first_week = payload["forecasts"][reference_date.isoformat()][target]["long"]["predictions"]["0"]
+    assert first_week["values"][first_week["quantiles"].index(0.5)] == 19.5
+
+
 @pytest.mark.parametrize("include_current_forecast", [True, False])
 def test_metrocast_uses_current_hub_locations(include_current_forecast):
     rows = [

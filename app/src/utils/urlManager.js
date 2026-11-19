@@ -130,6 +130,7 @@ export class URLParameterManager {
       intervalVisibility,
       showLegend,
       showNowcasts: ["1", "true"].includes(this.searchParams.get("nowcasts")),
+      showSampleTrajectories: this.searchParams.get("samples") === "1",
       showOtherGroundTruthSeasons,
       showHistogram: histogramParam === "1" || histogramParam === "true",
       metrocastSpan: spanParam === "season" ? "season" : DEFAULT_METROCAST_SPAN,
@@ -165,6 +166,7 @@ export class URLParameterManager {
     intervalVisibility,
     showLegend,
     showNowcasts,
+    showSampleTrajectories,
     showOtherGroundTruthSeasons,
     showHistogram,
     metrocastSpan,
@@ -216,6 +218,14 @@ export class URLParameterManager {
         updatedParams.set("nowcasts", "1");
       } else {
         updatedParams.delete("nowcasts");
+      }
+    }
+
+    if (typeof showSampleTrajectories === "boolean") {
+      if (showSampleTrajectories) {
+        updatedParams.set("samples", "1");
+      } else {
+        updatedParams.delete("samples");
       }
     }
 

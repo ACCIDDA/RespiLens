@@ -271,7 +271,8 @@ def save_json_file(
         output_path: str,
         output_filename: str,
         file_contents: dict,
-        overwrite: bool
+        overwrite: bool,
+        indent: int | None = 4,
 ) -> None:
     """
     Save an already-validated JSON to output_path/pathogen-ext/file_name.json.
@@ -281,6 +282,7 @@ def save_json_file(
         output_path: Path to top-level saving directory
         output_filename: Full name of file to be saved
         file_contents: Contents of file to be saved
+        indent: JSON indentation, or None for compact output
 
     Raises:
         FileExistsError: If file already exists at the full output path and overwrite is set to False.
@@ -320,7 +322,8 @@ def save_json_file(
         )
     
     with open(file_path, 'w') as of:
-        json.dump(file_contents, of, indent=4)
+        separators = (',', ':') if indent is None else None
+        json.dump(file_contents, of, indent=indent, separators=separators)
 
 
 STATENAME_TO_ABBREVIATION_MAP = {
