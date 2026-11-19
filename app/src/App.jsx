@@ -25,6 +25,7 @@ import ToolsPage from "./components/tools/ToolsPage";
 import AboutPage from "./components/AboutPage";
 import NotFoundPage from "./components/NotFoundPage";
 import MyPrivateHub from "./components/my-private-hub/MyPrivateHub";
+import StateSummaryPage from "./components/summary/StateSummaryPage";
 import { Center, Text } from "@mantine/core";
 import { ENABLED_TOURNAMENTS } from "./config";
 import {
@@ -119,6 +120,9 @@ const AppLayout = () => {
           element={<ReportingDelayPage />}
         />
         <Route path="/toolbox/my-private-hub" element={<MyPrivateHub />} />
+        {/* State summary (proof of concept: Utah only): /summary/UT/2026-10-24 */}
+        <Route path="/summary/:location" element={<StateSummaryPage />} />
+        <Route path="/summary/:location/:date" element={<StateSummaryPage />} />
         {/* Front page for a state: /AR (static routes rank first) */}
         <Route path="/:location" element={<FrontPageLocationRoute />} />
         <Route path="*" element={<NotFoundPage />} />

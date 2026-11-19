@@ -67,6 +67,7 @@ const ForecastPlotView = ({
     showNowcasts,
     showOtherGroundTruthSeasons,
     viewType,
+    colorSeed,
   } = useView();
 
   const groundTruth = data?.ground_truth;
@@ -143,6 +144,7 @@ const ForecastPlotView = ({
     forecasts,
     selectedDates,
     selectedModels,
+    colorSeed,
     target: resolvedForecastTarget,
     groundTruthLabel: "Observed",
     groundTruthValueFormat,
@@ -413,6 +415,7 @@ const ForecastPlotView = ({
           setSelectedModels={setSelectedModels}
           activeModels={activeModels}
           selectedDates={selectedDates}
+          colorSeed={colorSeed}
           keyboardShortcut
         />
       </Stack>

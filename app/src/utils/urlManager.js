@@ -54,6 +54,13 @@ export class URLParameterManager {
     if (dataset.hasModelSelector) {
       const models = this.searchParams.get(`${prefix}_models`);
       params.models = models ? models.split(",") : [];
+      // The "Distinct" model colors and which shuffle of them; absent is the standard colors
+      const colors = Number.parseInt(
+        this.searchParams.get(`${prefix}_colors`),
+        10,
+      );
+      params.colorSeed =
+        Number.isInteger(colors) && colors >= 0 ? colors : null;
     }
 
     if (currentView !== "nhsnall") {
@@ -123,6 +130,7 @@ export class URLParameterManager {
       intervalVisibility,
       showLegend,
       showNowcasts: ["1", "true"].includes(this.searchParams.get("nowcasts")),
+      showSampleTrajectories: this.searchParams.get("samples") === "1",
       showOtherGroundTruthSeasons,
       showHistogram: histogramParam === "1" || histogramParam === "true",
       metrocastSpan: spanParam === "season" ? "season" : DEFAULT_METROCAST_SPAN,
@@ -158,6 +166,7 @@ export class URLParameterManager {
     intervalVisibility,
     showLegend,
     showNowcasts,
+    showSampleTrajectories,
     showOtherGroundTruthSeasons,
     showHistogram,
     metrocastSpan,
@@ -209,6 +218,14 @@ export class URLParameterManager {
         updatedParams.set("nowcasts", "1");
       } else {
         updatedParams.delete("nowcasts");
+      }
+    }
+
+    if (typeof showSampleTrajectories === "boolean") {
+      if (showSampleTrajectories) {
+        updatedParams.set("samples", "1");
+      } else {
+        updatedParams.delete("samples");
       }
     }
 
@@ -279,6 +296,17 @@ export class URLParameterManager {
         updatedParams.set(`${prefix}_models`, newParams.models.join(","));
       } else {
         updatedParams.delete(`${prefix}_models`);
+      }
+    }
+
+    if (
+      dataset.hasModelSelector &&
+      Object.prototype.hasOwnProperty.call(newParams, "colorSeed")
+    ) {
+      if (Number.isInteger(newParams.colorSeed)) {
+        updatedParams.set(`${prefix}_colors`, String(newParams.colorSeed));
+      } else {
+        updatedParams.delete(`${prefix}_colors`);
       }
     }
 

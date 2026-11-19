@@ -52,18 +52,64 @@ const getColorFromName = (model) => {
   return UNRESERVED_COLORS[Math.abs(hash) % UNRESERVED_COLORS.length];
 };
 
-// How a model is drawn on every chart, for everyone. Depends only on its name;
-// assigned by scripts/assign_model_colors.py. Dashed: excluded from the hub's ensemble.
-export const getModelStyle = (model) => {
+const DISTINCT_MARKERS = ["circle", "square", "diamond"];
+// The palette's first colors are the most different from each other
+const STRONGEST_COLOR_COUNT = 8;
+
+// A reproducible order of the given colors; seed 0 keeps theirs
+const getShuffledColors = (palette, seed) => {
+  const colors = [...palette];
+  let state = seed;
+  for (let i = colors.length - 1; i > 0 && seed; i -= 1) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    const j = state % (i + 1);
+    [colors[i], colors[j]] = [colors[j], colors[i]];
+  }
+  return colors;
+};
+
+// How a model is drawn. By default it depends only on its name, so it's the same on
+// every chart, for everyone: assigned by scripts/assign_model_colors.py. Dashed:
+// excluded from the hub's ensemble.
+// With a colorSeed (the "Distinct" display option), the shown models instead take
+// the strongest colors in turn, in the order they were selected; each seed is another
+// order of those colors. Every chart passes the same shownModels and seed, so they
+// still agree. Ensembles and baselines keep blue and gray.
+export const getModelStyle = (
+  model,
+  { shownModels = [], colorSeed = null } = {},
+) => {
   const pinned = pinnedModelStyles[model];
-  return {
+  const style = {
     color: pinned?.color ?? getColorFromName(model),
     marker: pinned?.marker ?? "circle",
     dashed: pinned?.dashed ?? false,
   };
+  if (colorSeed === null || !UNRESERVED_COLORS.includes(style.color)) {
+    return style;
+  }
+  const shown = shownModels.filter((other) =>
+    UNRESERVED_COLORS.includes(getModelStyle(other).color),
+  );
+  const index = shown.indexOf(model);
+  if (index < 0) return style;
+  // Only as many colors as needed, so a shuffle doesn't bring in near-duplicates
+  const colors = getShuffledColors(
+    UNRESERVED_COLORS.slice(0, Math.max(shown.length, STRONGEST_COLOR_COUNT)),
+    colorSeed,
+  );
+  return {
+    color: colors[index % colors.length],
+    marker:
+      DISTINCT_MARKERS[
+        Math.floor(index / colors.length) % DISTINCT_MARKERS.length
+      ],
+    dashed: style.dashed,
+  };
 };
 
-export const getModelColor = (model) => getModelStyle(model).color;
+export const getModelColor = (model, options) =>
+  getModelStyle(model, options).color;
 
 // For series that aren't models, such as the NHSN and NSSP columns
 export const getSeriesColor = (series, seriesOrder = []) => {

@@ -753,6 +753,7 @@ export const ViewProvider = ({ children }) => {
 
         if (oldDataset) {
           newSearchParams.delete(`${oldDataset.prefix}_models`);
+          newSearchParams.delete(`${oldDataset.prefix}_colors`);
           newSearchParams.delete("dates");
           newSearchParams.delete(`${oldDataset.prefix}_target`);
         }
@@ -1098,12 +1099,21 @@ export const ViewProvider = ({ children }) => {
     setShowLegend: setShowLegendWithUrl,
     showNowcasts,
     setShowNowcasts: setShowNowcastsWithUrl,
+    showSampleTrajectories:
+      urlManager.getAdvancedParams().showSampleTrajectories,
+    setShowSampleTrajectories: (showSampleTrajectories) =>
+      urlManager.updateAdvancedParams({ showSampleTrajectories }),
     showOtherGroundTruthSeasons,
     setShowOtherGroundTruthSeasons: setShowOtherGroundTruthSeasonsWithUrl,
     showHistogram,
     setShowHistogram: setShowHistogramWithUrl,
     metrocastSpan,
     setMetrocastSpan: setMetrocastSpanWithUrl,
+    // Kept in the link, per hub: switching hub goes back to the standard colors
+    colorSeed:
+      urlManager.getDatasetParams(urlManager.getDatasetFromView(viewType))
+        .colorSeed ?? null,
+    setColorSeed: (colorSeed) => updateDatasetParams({ colorSeed }),
   };
 
   return (

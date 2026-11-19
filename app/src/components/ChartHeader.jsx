@@ -59,12 +59,16 @@ const ChartHeader = ({
     setShowLegend,
     showNowcasts,
     setShowNowcasts,
+    showSampleTrajectories,
+    setShowSampleTrajectories,
     showOtherGroundTruthSeasons,
     setShowOtherGroundTruthSeasons,
     showHistogram,
     setShowHistogram,
     metrocastSpan,
     setMetrocastSpan,
+    colorSeed,
+    setColorSeed,
   } = useView();
 
   const about = useContext(ChartAboutContext);
@@ -175,6 +179,12 @@ const ChartHeader = ({
                   ? setShowNowcasts
                   : null
               }
+              showSampleTrajectories={showSampleTrajectories}
+              setShowSampleTrajectories={
+                viewType === "metrocast_forecasts"
+                  ? setShowSampleTrajectories
+                  : null
+              }
               showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
               setShowOtherGroundTruthSeasons={setShowOtherGroundTruthSeasons}
               disableOtherGroundTruthSeasons={isSurveillance}
@@ -183,6 +193,8 @@ const ChartHeader = ({
               setShowHistogram={
                 viewType === "flu_forecasts" ? setShowHistogram : null
               }
+              colorSeed={colorSeed}
+              setColorSeed={!isSurveillance ? setColorSeed : null}
             />
           </Popover.Dropdown>
         </Popover>

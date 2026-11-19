@@ -11,7 +11,7 @@ sys.path.append(str(ROOT / "scripts"))
 
 from external_data import load_inputs
 from processors import FlusightDataProcessor, FluMetrocastDataProcessor, RSVDataProcessor, COVIDDataProcessor
-from helper import hubverse_df_preprocessor, samples_to_quantiles
+from helper import hubverse_df_preprocessor
 
 
 def _load_expected(filename: str) -> dict:
@@ -70,9 +70,6 @@ def test_flusight_processor_matches_expected():
 ])
 @pytest.mark.parametrize("output_type", ["quantile", "pmf", "sample"])
 def test_negative_horizons_survive_json_export(processor_class, suffix, output_type):
-    if output_type == "sample" and processor_class is not FluMetrocastDataProcessor:
-        pytest.skip("Only Metrocast converts sample trajectories to quantiles")
-
     reference_date = datetime.date(2026, 10, 7)
     horizons = [-2, -1, 0, 1]
     target = "wk inc flu hosp"
@@ -80,7 +77,7 @@ def test_negative_horizons_survive_json_export(processor_class, suffix, output_t
         {
             "location": "06", "reference_date": reference_date,
             "target": target, "model_id": "test-model",
-            "horizon": None if output_type == "sample" else horizon,
+            **({"horizon": horizon} if output_type != "sample" else {}),
             "output_type": output_type,
             "output_type_id": "stable" if output_type == "pmf" else 0.5,
             "value": 0.8 if output_type == "pmf" else 42,
@@ -88,8 +85,6 @@ def test_negative_horizons_survive_json_export(processor_class, suffix, output_t
         }
         for horizon in horizons
     ])
-    if output_type == "sample":
-        forecasts = samples_to_quantiles(forecasts)
     forecasts = hubverse_df_preprocessor(forecasts, filter_nowcasts=False)
     locations = pd.DataFrame([{
         "location": "06", "abbreviation": "CA", "location_name": "California",
@@ -128,6 +123,114 @@ def test_nowcast_filter_remains_optional():
     })
     assert hubverse_df_preprocessor(forecasts, filter_nowcasts=True)["horizon"].tolist() == [0, 1]
     assert hubverse_df_preprocessor(forecasts, filter_nowcasts=False)["horizon"].tolist() == [-2, -1, 0, 1]
+
+
+@pytest.mark.parametrize("use_tasks", [True, False])
+def test_optional_outputs_prefer_quantiles_across_the_model(use_tasks):
+    forecasts = pd.DataFrame([
+        ("mixed", "2026-11-07", "06", "quantile", "0.5", 100),
+        ("mixed", "2026-11-14", "08", "sample", "draw-1", 200),
+        ("mixed", "2026-11-14", "06", "pmf", "stable", 0.8),
+        ("sample-only", "2026-11-14", "06", "sample", "draw-1", 10),
+        ("sample-only", "2026-11-14", "06", "sample", "draw-2", 30),
+    ], columns=["model_id", "reference_date", "location", "output_type", "output_type_id", "value"])
+    forecasts["target"] = "wk inc flu hosp"
+    forecasts["target_end_date"] = forecasts["reference_date"]
+    forecasts["horizon"] = 0
+    tasks = {"rounds": [{"model_tasks": [{
+        "task_ids": {"target": {"optional": ["wk inc flu hosp"]}},
+        "output_type": {"quantile": {"is_required": False}, "sample": {"is_required": False}},
+    }]}]}
+
+    processed = hubverse_df_preprocessor(forecasts, tasks=tasks if use_tasks else None)
+
+    native = processed[processed["model_id"] == "mixed"]
+    assert set(zip(native["output_type"], native["value"])) == {("quantile", 100), ("pmf", 0.8)}
+    derived = processed[processed["model_id"] == "sample-only"]
+    assert set(derived["output_type"]) == {"quantile"}
+    assert dict(zip(derived["output_type_id"], derived["value"])) == {
+        0.025: 10.5, 0.25: 15, 0.5: 20, 0.75: 25, 0.975: 29.5,
+    }
+
+
+@pytest.mark.parametrize("date_format", [str, datetime.date.fromisoformat, pd.Timestamp])
+def test_required_output_follows_the_round_and_target(date_format):
+    forecasts = pd.DataFrame([
+        ("mixed", "2025-11-22", "incidence", "quantile", "0.5", 100),
+        ("mixed", "2025-11-22", "incidence", "sample", "draw-1", 200),
+        ("sample-only", "2025-11-22", "incidence", "sample", "draw-1", 210),
+        ("mixed", "2026-10-24", "incidence", "quantile", "0.5", 300),
+        ("mixed", "2026-10-24", "incidence", "sample", "draw-1", 400),
+        ("quantile-only", "2026-10-24", "incidence", "quantile", "0.5", 310),
+        ("sample-only", "2026-10-24", "ed visits", "sample", "draw-1", 500),
+    ], columns=["model_id", "reference_date", "target", "output_type", "output_type_id", "value"])
+    forecasts["location"] = "06"
+    forecasts["reference_date"] = forecasts["reference_date"].map(date_format)
+    forecasts["target_end_date"] = forecasts["reference_date"]
+    tasks = {"rounds": [
+        {
+            "round_id": "reference_date", "round_id_from_variable": True,
+            "model_tasks": [{
+                "task_ids": {"reference_date": {"optional": [date]}, "target": {"required": ["incidence"]}},
+                "output_type": {
+                    "quantile": {"is_required": required == "quantile"},
+                    "sample": {"is_required": required == "sample"},
+                },
+            }],
+        }
+        for date, required in [("2025-11-22", "quantile"), ("2026-10-24", "sample")]
+    ]}
+    # Only the sample rows derive horizons, so give the historical quantiles their submitted horizon.
+    forecasts.loc[forecasts["output_type"] == "quantile", "horizon"] = 0
+
+    processed = hubverse_df_preprocessor(forecasts, tasks=tasks)
+
+    medians = processed[processed["output_type_id"] == 0.5]
+    assert set(zip(medians["model_id"], medians["target"], medians["value"])) == {
+        ("mixed", "incidence", 100), ("mixed", "incidence", 400), ("sample-only", "ed visits", 500),
+    }
+    assert set(processed["horizon"]) == {0}
+
+
+def test_metrocast_exports_complete_deterministic_sample_trajectories():
+    reference_date = datetime.date(2026, 10, 31)
+    target = "Flu ED visits pct"
+    dates = [reference_date, reference_date + datetime.timedelta(weeks=1)]
+    samples = pd.DataFrame([
+        {
+            "location": "denver", "reference_date": reference_date,
+            "target": target, "model_id": model, "target_end_date": dates[week],
+            "horizon": None, "output_type": "sample", "output_type_id": f"S{sample}",
+            "value": offset + sample + week * 0.25,
+        }
+        for model, offset, count in [("long", 0, 40), ("short", 100, 2)]
+        for sample in range(count)
+        for week in range(2)
+        if (model, sample, week) != ("long", 0, 1)
+    ])
+    forecasts = hubverse_df_preprocessor(samples, filter_nowcasts=False)
+    locations = pd.DataFrame([{
+        "location": "denver", "original_location_code": "688",
+        "location_name": "Denver, CO", "population": 2973329,
+    }])
+    truth = pd.DataFrame([{
+        "location": "denver", "target": target, "as_of": dates[1],
+        "target_end_date": dates[0], "observation": 40,
+    }])
+    payload = FluMetrocastDataProcessor(forecasts, locations, truth, samples).output_dict["denver_flu_metrocast.json"]
+    shuffled = samples.sample(frac=1, random_state=7)
+    repeated = FluMetrocastDataProcessor(forecasts, locations, truth, shuffled).output_dict["denver_flu_metrocast.json"]
+
+    overlay = payload["sample_trajectories"]
+    assert overlay == repeated["sample_trajectories"]
+    models = overlay[reference_date.isoformat()][target]
+    assert models["long"]["dates"] == [date.isoformat() for date in dates]
+    paths = models["long"]["samples"]
+    assert len({tuple(path) for path in paths}) == len(paths) == 30
+    assert all(1 <= start < 40 and end == start + 0.25 for start, end in paths)
+    assert models["short"]["samples"] == [[100, 100.25], [101, 101.25]]
+    first_week = payload["forecasts"][reference_date.isoformat()][target]["long"]["predictions"]["0"]
+    assert first_week["values"][first_week["quantiles"].index(0.5)] == 19.5
 
 
 @pytest.mark.parametrize("include_current_forecast", [True, False])

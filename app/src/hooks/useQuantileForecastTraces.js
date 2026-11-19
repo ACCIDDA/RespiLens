@@ -132,6 +132,7 @@ const useQuantileForecastTraces = ({
   formatValue = defaultFormatValue,
   modelHoverBuilder = null,
   modelColorFn = null,
+  colorSeed = null,
   modelLineWidth = 2,
   modelMarkerSize = 6,
   groundTruthLineWidth = 1.5,
@@ -395,7 +396,10 @@ const useQuantileForecastTraces = ({
         );
         if (forecastDates.length === 0 && !hasIntervalSeries) return [];
 
-        const modelStyle = getModelStyle(model);
+        const modelStyle = getModelStyle(model, {
+          shownModels: selectedModels,
+          colorSeed,
+        });
         const modelColor = modelColorFn
           ? modelColorFn(model)
           : modelStyle.color;
@@ -508,6 +512,7 @@ const useQuantileForecastTraces = ({
     formatValue,
     modelHoverBuilder,
     modelColorFn,
+    colorSeed,
     modelLineWidth,
     modelMarkerSize,
     groundTruthLineWidth,

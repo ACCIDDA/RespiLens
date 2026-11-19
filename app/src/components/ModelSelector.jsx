@@ -28,6 +28,7 @@ const ModelSelector = ({
   allowMultiple = true,
   disabled = false,
   modelColorFn = null,
+  colorSeed = null,
   showDashedNote = true,
   // Only used to word the "not available" tooltip
   selectedDates = [],
@@ -53,7 +54,9 @@ const ModelSelector = ({
   );
 
   const colorFor = (model) =>
-    modelColorFn ? modelColorFn(model) : getModelColor(model);
+    modelColorFn
+      ? modelColorFn(model)
+      : getModelColor(model, { shownModels: selectedModels, colorSeed });
   // The peak chart draws points, so nothing on it is dashed
   const hasDashedLine =
     showDashedNote &&
