@@ -111,21 +111,10 @@ const seasonWeekOffset = (forecastWeek, lastPeakWeek) => {
   );
 };
 
-// Where a week sits from the latest reported one
-const weeksFromReported = (week, reportedWeek) => {
-  const n = Math.round(
-    (Date.parse(week) - Date.parse(reportedWeek)) / (7 * 86400000),
-  );
-  const weeks = (k) => `${k} week${k === 1 ? "" : "s"}`;
-  if (n > 0) return `${weeks(n)} ahead`;
-  if (n === 0) return "the latest reported week";
-  return `already reported, ${weeks(-n)} before the latest week`;
-};
-
 /**
- * An ensemble's peak forecast against last season's observed peak.
+ * The FluSight ensemble's peak forecast against last season's observed peak.
  * `peakSize` is the quantile forecast of the peak, `peakWeek` the pmf over
- * weeks. `lead` opens the sentence, `perWeek` follows the peak value.
+ * weeks.
  */
 export const peakSentence = (
   peakSize,
@@ -133,8 +122,6 @@ export const peakSentence = (
   lastPeak,
   fmt,
   reportedWeek,
-  lead = "The FluSight ensemble forecasts this season's hospital admissions to peak at",
-  perWeek = " a week",
 ) => {
   const q = (level) => {
     const i = peakSize?.quantiles?.findIndex((x) => Number(x) === level);
@@ -142,7 +129,7 @@ export const peakSentence = (
   };
   const median = q(0.5);
   if (median === null) return null;
-  let text = `${lead} about ${fmt(median)}${perWeek}`;
+  let text = `The FluSight ensemble forecasts this season's hospital admissions to peak at about ${fmt(median)} a week`;
   if (q(0.25) !== null && q(0.75) !== null)
     text += ` (50% interval ${fmt(q(0.25))}–${fmt(q(0.75))})`;
   if (lastPeak?.value > 0) {
@@ -160,7 +147,7 @@ export const peakSentence = (
   if (weeks.length && probs.length) {
     const best = probs.indexOf(Math.max(...probs));
     const ahead = reportedWeek
-      ? `${weeksFromReported(weeks[best], reportedWeek)}, `
+      ? `${Math.round((Date.parse(weeks[best]) - Date.parse(reportedWeek)) / (7 * 86400000))} weeks ahead, `
       : "";
     text += `. The most likely peak week in the forecast is the week ending ${formatWeek(weeks[best])} (${ahead}${pct(probs[best])} chance)`;
     if (lastPeak) {

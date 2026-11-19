@@ -14,7 +14,7 @@ from processors import FlusightDataProcessor, RSVDataProcessor, COVIDDataProcess
 from nhsn_data_processor import NHSNDataProcessor
 from nssp_data_processor import NSSPDataProcessor
 from forecastchecker_fetch import forecastchecker_fetch
-from helper import save_json_file, hubverse_df_preprocessor, clean_nan_values, samples_to_quantiles, samples_to_peaks
+from helper import save_json_file, hubverse_df_preprocessor, clean_nan_values, samples_to_quantiles
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -159,22 +159,17 @@ def main():
         flu_metrocast_hub_conn = connect_hub(args.flu_metrocast_hub_path)
         logger.info("Success ✅")
         logger.info("Collecting data from flu metrocast repo...")
-        flu_metrocast_samples_df = flu_metrocast_hub_conn.get_dataset().to_table().to_pandas()
-        flu_metrocast_target_data = clean_nan_values(connect_target_data(hub_path=args.flu_metrocast_hub_path, target_type=TargetType.TIME_SERIES).to_table().to_pandas())
-        # Long-term trajectories' peak forecasts come from the whole sample seasons, observed weeks included
-        flu_metrocast_peaks = samples_to_peaks(flu_metrocast_samples_df, target_data=flu_metrocast_target_data)
         # 2026-27 submissions are sample trajectories without a horizon: summarize them as quantiles first
-        flu_metrocast_raw_df = samples_to_quantiles(flu_metrocast_samples_df)
-        del flu_metrocast_samples_df
+        flu_metrocast_raw_df = samples_to_quantiles(flu_metrocast_hub_conn.get_dataset().to_table().to_pandas())
         flu_metrocast_hubverse_df = clean_nan_values(hubverse_df_preprocessor(df=flu_metrocast_raw_df, filter_nowcasts=False))
         flu_metrocast_locations_data = clean_nan_values(pd.read_csv(Path(args.flu_metrocast_hub_path) / 'auxiliary-data/locations.csv')) # DEP: metrocast still pulls hub locations.csv
+        flu_metrocast_target_data = clean_nan_values(connect_target_data(hub_path=args.flu_metrocast_hub_path, target_type=TargetType.TIME_SERIES).to_table().to_pandas())
         logger.info("Success ✅")
         # Initialize converter object
         flu_metrocast_processor_object = FluMetrocastDataProcessor(
             data=flu_metrocast_hubverse_df,
             locations_data=flu_metrocast_locations_data,
-            target_data=flu_metrocast_target_data,
-            peaks=flu_metrocast_peaks,
+            target_data=flu_metrocast_target_data
         )
         # Iteratively save output files
         logger.info("Saving flu metrocast JSON files...")

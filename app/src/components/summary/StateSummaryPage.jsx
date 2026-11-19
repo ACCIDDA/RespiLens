@@ -14,7 +14,6 @@ import {
   Select,
   SimpleGrid,
   Stack,
-  Switch,
   Tabs,
   Text,
   Title,
@@ -143,25 +142,6 @@ const metrocastEnsembles = (targetData) =>
     ]),
   );
 
-// MetroCast's full-season peak forecast (size and week, from its sample
-// seasons) on a date, under its display name, in the shape of `peaks`
-const metrocastSeasonPeaks = (peaks, date) => {
-  const pick = (target) => {
-    const models = peaks?.[date]?.[target];
-    const name = METROCAST_ENSEMBLES[MC_SEASON].find((m) => models?.[m]);
-    return name && models[name];
-  };
-  const size = pick(`peak ${FLU_ED}`);
-  const week = pick(`peak week ${FLU_ED}`);
-  if (!size || !week) return null;
-  return {
-    [date]: {
-      [`peak ${FLU_ED}`]: { [MC_SEASON]: size },
-      [`peak week ${FLU_ED}`]: { [MC_SEASON]: week },
-    },
-  };
-};
-
 const scaleForecast = (forecast, factor) =>
   forecast && {
     ...forecast,
@@ -250,7 +230,6 @@ const buildChart = ({
   models,
   tiles,
   extraTiles = [],
-  peaks = null,
   ...rest
 }) => {
   const latest = latestObserved(groundTruth, target, date);
@@ -263,7 +242,6 @@ const buildChart = ({
     data: {
       ground_truth: groundTruth,
       forecasts: { [date]: { [target]: present } },
-      ...(peaks && { peaks }),
     },
     models: Object.keys(present),
     facts: describeSeries(groundTruth, target, date, unit.floor),
@@ -286,7 +264,6 @@ const buildChart = ({
 const fluSection = (data, date, stateCode, intervals) => {
   const fs = data.flusight?.forecasts?.[date] || {};
   const mc = metrocastEnsembles(data.metrocast?.forecasts?.[date]?.[FLU_ED]);
-  const mcPeaks = metrocastSeasonPeaks(data.metrocast?.peaks, date);
   const peak = data.flusight?.peaks?.[date];
   const peakTraces = buildPeakForecastTraces({
     peaks: data.flusight?.peaks,
@@ -309,7 +286,7 @@ const fluSection = (data, date, stateCode, intervals) => {
   const ed = buildChart({
     title: "Emergency department visits",
     subtitle:
-      "Percent of emergency department visits due to influenza (NSSP), statewide. This target is forecast independently by FluSight and by MetroCast. The point with error bars is MetroCast's full-season forecast of this season's peak: how high it gets, and in which week.",
+      "Percent of emergency department visits due to influenza (NSSP), statewide. This target is forecast independently by FluSight and by MetroCast.",
     groundTruth:
       data.metrocast?.ground_truth ??
       percentGroundTruth(data.flusight?.ground_truth, FLU_ED_FLUSIGHT, FLU_ED),
@@ -322,7 +299,6 @@ const fluSection = (data, date, stateCode, intervals) => {
       [MC_4WK]: mc[MC_4WK],
       [FLUSIGHT]: scaleForecast(fs[FLU_ED_FLUSIGHT]?.[FLUSIGHT], 100),
     },
-    peaks: mcPeaks,
     tiles: [
       [FLUSIGHT, "FluSight ensemble"],
       [MC_4WK, "MetroCast ensemble"],
@@ -353,16 +329,6 @@ const fluSection = (data, date, stateCode, intervals) => {
     label: "Flu",
     brief: [
       seriesSentence("Reported flu ED visits were", ed.facts, PERCENT.format),
-      mcPeaks &&
-        peakSentence(
-          mcPeaks[date][`peak ${FLU_ED}`][MC_SEASON].predictions,
-          mcPeaks[date][`peak week ${FLU_ED}`][MC_SEASON].predictions,
-          ed.facts?.peak,
-          PERCENT.format,
-          ed.facts?.latest?.date,
-          "The MetroCast full-season ensemble forecasts this season's share of ED visits due to flu to peak at",
-          "",
-        ),
       seriesSentence(
         "Reported weekly flu hospital admissions were",
         hosp.facts,
@@ -386,7 +352,6 @@ const fluSection = (data, date, stateCode, intervals) => {
         data: {
           ground_truth: l.data.ground_truth,
           forecasts: { [date]: { [FLU_ED]: ens } },
-          peaks: metrocastSeasonPeaks(l.data.peaks, date),
         },
       };
     }),
@@ -513,38 +478,9 @@ const SummaryPlot = ({ bounds, ...props }) => {
   );
 };
 
-// Beside a chart with MetroCast's full-season peak: its weekly quantiles too,
-// or the peak alone. One setting for the whole page.
-const SeasonQuantilesSwitch = ({ checked, onChange }) => (
-  <Group justify="flex-end">
-    <Tooltip
-      label="MetroCast's full-season ensemble: its weekly quantiles beside its peak forecast, or the peak alone"
-      openDelay={300}
-    >
-      <Switch
-        size="xs"
-        label="Full-season quantiles"
-        checked={checked}
-        onChange={(e) => onChange(e.currentTarget.checked)}
-      />
-    </Tooltip>
-  </Group>
-);
-
 // `compare`: the all-locations snapshot for this disease and date, with the
 // map shapes, for the comparisons with other states and between districts
-const DiseasePanel = ({
-  section,
-  chartProps,
-  compare,
-  setShowSeasonQuantiles,
-}) => {
-  const seasonSwitch = (
-    <SeasonQuantilesSwitch
-      checked={chartProps.showLongTermQuantiles}
-      onChange={setShowSeasonQuantiles}
-    />
-  );
+const DiseasePanel = ({ section, chartProps, compare }) => {
   if (section.missing)
     return (
       <Text size="sm" c="dimmed" fs="italic">
@@ -592,7 +528,6 @@ const DiseasePanel = ({
               <StatTile key={tile.label} {...tile} />
             ))}
           </SimpleGrid>
-          {chart.data.peaks && seasonSwitch}
           <SummaryPlot
             {...chartProps}
             locationData={chart.data}
@@ -608,14 +543,13 @@ const DiseasePanel = ({
           title={subsTitle}
           subtitle={
             subs.some((l) => l.models.length)
-              ? "Percent of emergency department visits due to influenza in each health district, with MetroCast's 4-week and full-season ensemble forecasts, and the full-season ensemble's forecast of the peak."
+              ? "Percent of emergency department visits due to influenza in each health district, with MetroCast's 4-week and full-season ensemble forecasts."
               : "Percent of emergency department visits due to influenza in each health district. MetroCast has no district forecasts for this date, so only observed data is shown."
           }
         >
           {compare?.day && (
             <DistrictComparison {...compare} geo={compare.geo.counties} />
           )}
-          {subs.some((l) => l.data.peaks) && seasonSwitch}
           {/* At most 3 per row, taller than the MetroCast page's tiles */}
           <SimpleGrid cols={{ base: 1, xs: 2, md: 3 }} spacing="md">
             {subs.map((l) => (
@@ -665,9 +599,6 @@ const StateSummaryPage = () => {
   // setting stays local so the forecast pages keep their own
   const [showOtherSeasons, setShowOtherSeasons] = useState(true);
   const [tab, setTab] = useState("flu");
-  // MetroCast's full-season ensemble: its weekly quantiles beside its peak
-  // forecast, unless hidden to see the peak alone
-  const [showSeasonQuantiles, setShowSeasonQuantiles] = useState(true);
   const stateCode = location?.toUpperCase();
   const config = SUMMARY_STATES[stateCode];
 
@@ -783,7 +714,6 @@ const StateSummaryPage = () => {
     showOtherGroundTruthSeasons: showOtherSeasons,
     // The 4-week and full-season forecasts are drawn together
     span: "season",
-    showLongTermQuantiles: showSeasonQuantiles,
     groundTruthLabel: "Reported",
     modelColorFn: colorOf,
   };
@@ -894,7 +824,6 @@ const StateSummaryPage = () => {
                   <DiseasePanel
                     section={section}
                     chartProps={chartProps}
-                    setShowSeasonQuantiles={setShowSeasonQuantiles}
                     compare={
                       data.snapshot && {
                         day: data.snapshot.dates[selectedDate]?.[section.key],
