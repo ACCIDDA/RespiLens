@@ -18,7 +18,6 @@ import {
 import Plot from "react-plotly.js";
 import ModelSelector from "../ModelSelector";
 import { DATASETS } from "../../config";
-import { getModelStyle } from "../../config/datasets";
 import { useView } from "../../hooks/useView";
 import { useChartReset } from "../../hooks/useChartReset";
 import {
@@ -44,11 +43,9 @@ import useQuantileForecastTraces from "../../hooks/useQuantileForecastTraces";
 import useForecastDateDrag from "../../hooks/useForecastDateDrag";
 import {
   getScaleYAxis,
-  getYRangeFromTraces,
   normalizeChartScale,
   transformValueForScale,
 } from "../../utils/scaleUtils";
-import { getVisiblePredictions } from "../../utils/forecastPredictions";
 import { copyRange, getRelayoutXRange } from "../../utils/plotRange";
 import ChartCaption from "../ChartCaption";
 
@@ -145,7 +142,6 @@ export const MetroPlotCard = ({
   intervalVisibility,
   showLegend = true,
   showNowcasts = false,
-  showSampleTrajectories = false,
   showOtherGroundTruthSeasons = false,
   span = "4wk",
   colorSeed = null,
@@ -160,8 +156,6 @@ export const MetroPlotCard = ({
 }) => {
   const groundTruth = locationData?.ground_truth;
   const allForecasts = locationData?.forecasts;
-  const sampleTrajectories = locationData?.sample_trajectories;
-  const normalizedChartScale = normalizeChartScale(chartScale);
 
   // "4 weeks" cuts every model to horizons 0-3; "Full season" keeps the
   // long-term models' later horizons
@@ -228,8 +222,8 @@ export const MetroPlotCard = ({
         for (let i = 0; i < trace.x.length; i++) {
           const d = new Date(trace.x[i]);
           if (d >= start && d <= end) {
-            const v = trace.y[i];
-            if (Number.isFinite(v)) {
+            const v = Number(trace.y[i]);
+            if (!isNaN(v)) {
               minY = Math.min(minY, v);
               maxY = Math.max(maxY, v);
             }
@@ -237,20 +231,16 @@ export const MetroPlotCard = ({
         }
       });
       if (minY === Infinity) return null;
-      const pad =
-        Math.abs(maxY) * (CHART_CONSTANTS.Y_AXIS_PADDING_PERCENT / 100);
-      const lower = minY - pad;
-      return [
-        normalizedChartScale === "log2" ? lower : Math.max(0, lower),
-        maxY + pad,
-      ];
+      const pad = maxY * (CHART_CONSTANTS.Y_AXIS_PADDING_PERCENT / 100);
+      return [Math.max(0, minY - pad), maxY + pad];
     },
-    [selectedTarget, normalizedChartScale],
+    [selectedTarget],
   );
 
   const showMedian = intervalVisibility?.median ?? true;
   const show50 = intervalVisibility?.ci50 ?? true;
   const show95 = intervalVisibility?.ci95 ?? true;
+  const normalizedChartScale = normalizeChartScale(chartScale);
   // ED visit targets are percentages; hospital admissions are counts
   const isPercentTarget = selectedTarget?.endsWith("pct") ?? true;
   const valueSuffix = isPercentTarget ? "%" : "";
@@ -300,65 +290,6 @@ export const MetroPlotCard = ({
       : null,
   });
 
-  const sampleTraces = useMemo(() => {
-    if (!showSampleTrajectories || !sampleTrajectories) return [];
-    const traces = selectedDates.flatMap((date) =>
-      selectedModels.flatMap((model) => {
-        const group = sampleTrajectories[date]?.[selectedTarget]?.[model];
-        if (!group) return [];
-
-        const visibleDates = new Set(
-          getVisiblePredictions(
-            forecasts?.[date]?.[selectedTarget]?.[model]?.predictions,
-            date,
-            showNowcasts,
-          ).map((prediction) => prediction.date),
-        );
-        const indices = group.dates.flatMap((endDate, index) =>
-          visibleDates.has(endDate) ? [index] : [],
-        );
-        if (!indices.length) return [];
-
-        const color = modelColorFn
-          ? modelColorFn(model)
-          : getModelStyle(model, { shownModels: selectedModels, colorSeed })
-              .color;
-        const dates = indices.map((index) => group.dates[index]);
-        return group.samples.map((sample) => {
-          const values = indices.map((index) => sample[index]);
-          return {
-            type: "scatter",
-            mode: dates.length === 1 ? "markers" : "lines",
-            x: dates,
-            y: values,
-            customdata: values,
-            line: { color, width: 1 },
-            marker: { color, size: 4 },
-            opacity: 0.2,
-            name: "Sample trajectories",
-            legendgroup: "sample-trajectories",
-            showlegend: false,
-            hovertemplate: `${model} (${date})<br>%{x|%b %d}: %{customdata:.${valueDecimals}f}${valueSuffix}<extra></extra>`,
-          };
-        });
-      }),
-    );
-    if (traces.length) traces[0].showlegend = true;
-    return traces;
-  }, [
-    showSampleTrajectories,
-    sampleTrajectories,
-    colorSeed,
-    modelColorFn,
-    selectedDates,
-    selectedModels,
-    selectedTarget,
-    forecasts,
-    showNowcasts,
-    valueDecimals,
-    valueSuffix,
-  ]);
-
   const defRange = useMemo(() => getRange(), [getRange]);
 
   // On the main chart: click to add a forecast date, drag a line to move it
@@ -372,34 +303,14 @@ export const MetroPlotCard = ({
     },
   });
 
-  // Overlays use the same y-scale as the forecasts, with samples below them.
+  // Extra traces go through the same scale transform as the forecasts
   const plotData = useMemo(() => {
-    if (!sampleTraces.length && !extraTraces?.length) return projectionsData;
-    const scaleTraces = (traces) =>
-      manualScaleTransform
-        ? traces.map((trace) => ({
-            ...trace,
-            y: trace.y.map(manualScaleTransform),
-          }))
-        : traces;
-    return [
-      ...scaleTraces(sampleTraces),
-      ...projectionsData,
-      ...scaleTraces(extraTraces ?? []),
-    ];
-  }, [projectionsData, sampleTraces, extraTraces, manualScaleTransform]);
-
-  const sampleYRange = useMemo(
-    () => getYRangeFromTraces(sampleTraces),
-    [sampleTraces],
-  );
-  const rawRange =
-    rawYRange && sampleYRange
-      ? [
-          Math.min(rawYRange[0], sampleYRange[0]),
-          Math.max(rawYRange[1], sampleYRange[1]),
-        ]
-      : (rawYRange ?? sampleYRange);
+    if (!extraTraces?.length) return projectionsData;
+    const extra = manualScaleTransform
+      ? extraTraces.map((t) => ({ ...t, y: t.y.map(manualScaleTransform) }))
+      : extraTraces;
+    return [...projectionsData, ...extra];
+  }, [projectionsData, extraTraces, manualScaleTransform]);
 
   const yAxisRange = useMemo(() => {
     const range = xAxisRange || defRange;
@@ -476,7 +387,7 @@ export const MetroPlotCard = ({
             ...base.yaxis,
             ...getScaleYAxis({
               scale: normalizedChartScale,
-              rawRange,
+              rawRange: rawYRange,
               range: yAxisRange,
               title: isSmall
                 ? undefined
@@ -507,11 +418,6 @@ export const MetroPlotCard = ({
           }
         }}
       />
-      {showSampleTrajectories && !sampleTraces.length && (
-        <Text size="xs" c="dimmed" role="status">
-          No sample trajectories for the selected forecasts.
-        </Text>
-      )}
     </>
   );
 
@@ -545,7 +451,6 @@ const MetroCastView = ({
     intervalVisibility,
     showLegend,
     showNowcasts,
-    showSampleTrajectories,
     showOtherGroundTruthSeasons,
     metrocastSpan,
     colorSeed,
@@ -664,7 +569,6 @@ const MetroCastView = ({
         intervalVisibility={intervalVisibility}
         showLegend={showLegend}
         showNowcasts={showNowcasts}
-        showSampleTrajectories={showSampleTrajectories}
         showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
         span={metrocastSpan}
         colorSeed={colorSeed}

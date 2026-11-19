@@ -59,8 +59,6 @@ const ChartHeader = ({
     setShowLegend,
     showNowcasts,
     setShowNowcasts,
-    showSampleTrajectories,
-    setShowSampleTrajectories,
     showOtherGroundTruthSeasons,
     setShowOtherGroundTruthSeasons,
     showHistogram,
@@ -177,12 +175,6 @@ const ChartHeader = ({
               setShowNowcasts={
                 !isSurveillance && viewType !== "flu_peak"
                   ? setShowNowcasts
-                  : null
-              }
-              showSampleTrajectories={showSampleTrajectories}
-              setShowSampleTrajectories={
-                viewType === "metrocast_forecasts"
-                  ? setShowSampleTrajectories
                   : null
               }
               showOtherGroundTruthSeasons={showOtherGroundTruthSeasons}
