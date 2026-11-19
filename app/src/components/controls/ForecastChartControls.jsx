@@ -37,6 +37,8 @@ const ForecastChartControls = ({
   setShowLegend,
   showNowcasts = false,
   setShowNowcasts = null,
+  showSampleTrajectories = false,
+  setShowSampleTrajectories = null,
   showOtherGroundTruthSeasons = false,
   setShowOtherGroundTruthSeasons = null,
   disableOtherGroundTruthSeasons = false,
@@ -141,6 +143,23 @@ const ForecastChartControls = ({
             aria-label="Allow negative horizons"
             checked={showNowcasts}
             onChange={(event) => setShowNowcasts(event.currentTarget.checked)}
+            size="sm"
+            onLabel="On"
+            offLabel="Off"
+          />
+        </Group>
+      )}
+      {typeof setShowSampleTrajectories === "function" && (
+        <Group align="center" gap="md">
+          <Text size="xs" c="dimmed" style={{ minWidth: 90 }}>
+            Sample trajectories
+          </Text>
+          <Switch
+            aria-label="Sample trajectories"
+            checked={showSampleTrajectories}
+            onChange={(event) =>
+              setShowSampleTrajectories(event.currentTarget.checked)
+            }
             size="sm"
             onLabel="On"
             offLabel="Off"

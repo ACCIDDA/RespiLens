@@ -1099,6 +1099,10 @@ export const ViewProvider = ({ children }) => {
     setShowLegend: setShowLegendWithUrl,
     showNowcasts,
     setShowNowcasts: setShowNowcastsWithUrl,
+    showSampleTrajectories:
+      urlManager.getAdvancedParams().showSampleTrajectories,
+    setShowSampleTrajectories: (showSampleTrajectories) =>
+      urlManager.updateAdvancedParams({ showSampleTrajectories }),
     showOtherGroundTruthSeasons,
     setShowOtherGroundTruthSeasons: setShowOtherGroundTruthSeasonsWithUrl,
     showHistogram,
