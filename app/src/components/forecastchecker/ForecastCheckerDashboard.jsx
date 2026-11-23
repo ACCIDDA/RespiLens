@@ -1961,7 +1961,7 @@ const MyRespiVisualizationPanel = ({
 
   useEffect(() => {
     setXAxisRange(null);
-  }, [selectedLocationFile, selectedTarget]);
+  }, [selectedTarget]);
 
   useEffect(() => {
     if (isPlotlyLogScale(normalizedChartScale)) {
