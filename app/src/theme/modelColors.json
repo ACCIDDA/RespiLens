@@ -128,6 +128,7 @@
   "NU_UCSD-GLEAM_AI_FLUH": { "color": "#bcbd22", "marker": "square" },
   "OHTJHU-BM": { "color": "#ad1f77", "dashed": true },
   "OHTJHU-FLUFFHEAD": { "color": "#bcbd22", "marker": "diamond" },
+  "OHTJHU-FLUFFHEADMetro": { "color": "#0b6e4f" },
   "OHT_JHU-nbxd": { "color": "#e377c2" },
   "Ozgen-GBQR": { "color": "#5b2a86", "marker": "diamond" },
   "PLANET_NEU-ClaudeScience": { "color": "#37717f", "dashed": true },
