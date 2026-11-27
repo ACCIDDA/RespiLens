@@ -174,6 +174,7 @@
   "VTSanghani-Ensemble": { "color": "#b48ede" },
   "VTSanghani-PRIME": { "color": "#9467bd" },
   "Xi_lab-Agents": { "color": "#a68a64", "marker": "square", "dashed": true },
+  "Xi_lab-Agents_Adapt": { "color": "#2ca02c", "marker": "square", "dashed": true },
   "Xi_lab-GLEAM_AI": { "color": "#a68a64", "marker": "square" },
   "Xi_lab-GLEAM_AI_hybrid": { "color": "#ff7f0e", "marker": "diamond" },
   "ZJU_LeiLab-MPUDE_ens": { "color": "#b48ede" },
